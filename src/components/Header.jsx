@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, FileText, Code2, Star } from 'lucide-react';
+import { Settings, FileText, Code2, Star, Sparkles, Check } from 'lucide-react';
 
 export default function Header({ 
   onGoHome,
@@ -23,10 +23,32 @@ export default function Header({
   }, []);
 
   return (
-    <header className="glass-panel app-header" style={{ padding: '12px 24px', borderBottom: '1px solid var(--border-muted)', background: '#121215' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+    <header style={{
+      position: 'sticky',
+      top: '12px',
+      zIndex: 50,
+      maxWidth: '1280px',
+      margin: '0 auto 18px auto',
+      width: '100%'
+    }}>
+      <div 
+        className="glass-panel"
+        style={{
+          padding: '10px 20px',
+          borderRadius: 'var(--radius-lg)',
+          background: 'rgba(18, 18, 21, 0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px'
+        }}
+      >
         
-        {/* Brand Logo & Name (Clickable Homepage Link) */}
+        {/* Brand Logo & Name */}
         <div 
           onClick={onGoHome} 
           title="Return to Homepage"
@@ -35,56 +57,88 @@ export default function Header({
             alignItems: 'center', 
             gap: '12px', 
             cursor: 'pointer',
-            userSelect: 'none',
-            transition: 'opacity 0.2s ease'
+            userSelect: 'none'
           }}
           className="brand-logo-btn"
         >
           <div style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '8px',
-            background: '#18181b',
-            border: '1px solid #27272a',
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #27272a 0%, #18181b 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#ffffff'
           }}>
-            <Code2 size={18} />
+            <Code2 size={19} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: '700', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
-              Repo<span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.1em' }}>2Resume</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '1.2rem', fontWeight: '700', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              Repo<span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.1em', color: '#f4f4f5' }}>2Resume</span>
             </h1>
-            <span className="badge" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>
-              v1.0
-            </span>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#18181b', border: '1px solid #27272a', borderRadius: '20px', padding: '2px 8px' }}>
+              <span style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#22c55e',
+                boxShadow: '0 0 6px rgba(34, 197, 94, 0.8)'
+              }} />
+              <span className="font-mono" style={{ fontSize: '0.68rem', color: '#a1a1aa', fontWeight: '600' }}>
+                v1.0
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Right Navigation Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           
+          {/* Job Description Matcher Button */}
           <button 
             type="button" 
             className={`btn btn-secondary btn-sm ${hasJdKeywords ? 'badge-primary' : ''}`}
             onClick={onOpenJdModal}
             title="Match Job Description keywords"
-            style={{ gap: '6px', height: '34px', fontSize: '0.82rem' }}
+            style={{ 
+              gap: '6px', 
+              height: '36px', 
+              fontSize: '0.82rem',
+              padding: '0 14px',
+              borderRadius: 'var(--radius-md)',
+              border: hasJdKeywords ? '1px solid #ffffff' : '1px solid #27272a',
+              background: hasJdKeywords ? '#27272a' : '#18181b'
+            }}
           >
-            <FileText size={14} color="var(--text-secondary)" />
-            <span>{hasJdKeywords ? 'JD Matcher Active' : 'Match Job Description'}</span>
+            <FileText size={14} color={hasJdKeywords ? '#ffffff' : '#a1a1aa'} />
+            <span>{hasJdKeywords ? 'JD Match Active' : 'Match Job Description'}</span>
           </button>
 
+          {/* Settings Modal Button */}
           <button 
             type="button" 
             className="btn btn-secondary btn-sm"
             onClick={onOpenSettings}
             title="Settings & API Keys"
-            style={{ position: 'relative', height: '34px', width: '34px', padding: '0' }}
+            style={{ 
+              position: 'relative', 
+              height: '36px', 
+              width: '36px', 
+              padding: '0',
+              borderRadius: 'var(--radius-md)',
+              background: '#18181b',
+              border: '1px solid #27272a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
           >
-            <Settings size={15} color="var(--text-secondary)" />
+            <Settings size={15} color="#a1a1aa" />
             {hasApiKey && (
               <span style={{
                 position: 'absolute',
@@ -93,12 +147,13 @@ export default function Header({
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                background: '#ffffff'
+                background: '#ffffff',
+                boxShadow: '0 0 6px rgba(255, 255, 255, 0.8)'
               }} />
             )}
           </button>
 
-          {/* GitHub Style Star Button with Counter (Placed at the End) */}
+          {/* GitHub Star Button */}
           <a
             href="https://github.com/imsayanpaul/Repo2Resume"
             target="_blank"
@@ -108,8 +163,8 @@ export default function Header({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '7px',
-              padding: '4px 10px',
-              height: '34px',
+              padding: '4px 12px',
+              height: '36px',
               borderRadius: 'var(--radius-md)',
               background: '#18181b',
               border: '1px solid #27272a',
@@ -124,12 +179,12 @@ export default function Header({
             <Star size={14} color="#f4f4f5" />
             <span>Star</span>
             <span style={{
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.1)',
               padding: '2px 7px',
               borderRadius: '4px',
               fontSize: '0.74rem',
               fontWeight: '600',
-              color: '#e4e4e7',
+              color: '#ffffff',
               fontFamily: 'var(--font-mono)'
             }}>
               {starCount !== null ? starCount : '★'}

@@ -4,6 +4,7 @@ import RepoSelector from './components/RepoSelector';
 import ResumePreview from './components/ResumePreview';
 import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
+import Footer from './components/Footer';
 import { fetchUserRepos } from './services/github';
 import { generateRepoBullets } from './services/aiGenerator';
 import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
@@ -408,6 +409,8 @@ export default function App() {
             </div>
 
           </div>
+
+          <Footer />
 
         </div>
       ) : (
