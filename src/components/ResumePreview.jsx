@@ -286,7 +286,7 @@ export default function ResumePreview({
         </div>
       ) : generatedBullets.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <FileText size={40} style={{ marginBottom: '12px', opacity: 0.4, color: '#ffffff' }} />
+          <Code2 size={40} style={{ marginBottom: '12px', opacity: 0.4, color: '#ffffff' }} />
           <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#ffffff', marginBottom: '6px', fontFamily: 'var(--font-display)' }}>
             No Resume Bullets <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.08em' }}>Generated Yet</span>
           </h3>
