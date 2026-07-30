@@ -6,18 +6,14 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
     <footer 
       className="site-footer"
       style={{ 
-        width: '100vw',
-        position: 'relative',
-        left: '50%',
-        right: '50%',
-        marginLeft: '-50vw',
-        marginRight: '-50vw',
-        marginTop: '64px', 
-        padding: '48px 24px 32px 24px', 
+        width: '100%',
+        marginTop: '48px', 
+        padding: '36px 16px 28px 16px', 
         borderTop: '1px solid rgba(255, 255, 255, 0.1)', 
         background: '#09090c',
         color: '#ffffff',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        borderRadius: 'var(--radius-lg)'
       }}
     >
       <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>

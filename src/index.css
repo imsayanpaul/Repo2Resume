@@ -430,8 +430,14 @@ h1, h2, h3, h4, .font-display {
    Comprehensive Mobile & Tablet Responsive Media Queries
    ========================================================================== */
 
-/* Tablet & Mobile Devices (< 768px) */
 @media (max-width: 768px) {
+  .mobile-hide-badge {
+    display: none !important;
+  }
+  .mobile-hide-text {
+    display: none !important;
+  }
+
   .app-container {
     padding: 10px 12px 24px 12px !important;
     gap: 14px !important;

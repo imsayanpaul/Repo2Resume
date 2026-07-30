@@ -23,26 +23,27 @@ export default function Header({
   return (
     <header style={{
       position: 'sticky',
-      top: '12px',
+      top: '8px',
       zIndex: 50,
       maxWidth: '1280px',
-      margin: '0 auto 18px auto',
-      width: '100%'
+      margin: '0 auto 16px auto',
+      width: '100%',
+      boxSizing: 'border-box'
     }}>
       <div 
-        className="glass-panel"
+        className="glass-panel header-inner-bar"
         style={{
-          padding: '10px 20px',
+          padding: '8px 16px',
           borderRadius: 'var(--radius-lg)',
-          background: 'rgba(18, 18, 21, 0.85)',
+          background: 'rgba(18, 18, 21, 0.88)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px'
+          gap: '12px'
         }}
       >
         
@@ -53,41 +54,40 @@ export default function Header({
           style={{ 
             display: 'flex', 
             alignItems: 'center', 
-            gap: '12px', 
+            gap: '10px', 
             cursor: 'pointer',
             userSelect: 'none'
           }}
           className="brand-logo-btn"
         >
           <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
+            width: '34px',
+            height: '34px',
+            borderRadius: '9px',
             background: 'linear-gradient(135deg, #27272a 0%, #18181b 100%)',
             border: '1px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#ffffff'
+            color: '#ffffff',
+            flexShrink: 0
           }}>
-            <Code2 size={19} />
+            <Code2 size={18} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ fontSize: '1.2rem', fontWeight: '700', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ fontSize: '1.15rem', fontWeight: '700', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '3px' }}>
               Repo<span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.1em', color: '#f4f4f5' }}>2Resume</span>
             </h1>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#18181b', border: '1px solid #27272a', borderRadius: '20px', padding: '2px 8px' }}>
+            <div className="mobile-hide-badge" style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#18181b', border: '1px solid #27272a', borderRadius: '20px', padding: '2px 7px' }}>
               <span style={{
-                width: '6px',
-                height: '6px',
+                width: '5px',
+                height: '5px',
                 borderRadius: '50%',
-                background: '#22c55e',
-                boxShadow: '0 0 6px rgba(34, 197, 94, 0.8)'
+                background: '#22c55e'
               }} />
-              <span className="font-mono" style={{ fontSize: '0.68rem', color: '#a1a1aa', fontWeight: '600' }}>
+              <span className="font-mono" style={{ fontSize: '0.66rem', color: '#a1a1aa', fontWeight: '600' }}>
                 v1.0
               </span>
             </div>
@@ -95,7 +95,7 @@ export default function Header({
         </div>
 
         {/* Right Navigation Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
 
           {/* Settings Modal Button */}
           <button 
@@ -105,28 +105,28 @@ export default function Header({
             title="Settings & API Keys"
             style={{ 
               position: 'relative', 
-              height: '36px', 
-              width: '36px', 
+              height: '34px', 
+              width: '34px', 
               padding: '0',
               borderRadius: 'var(--radius-md)',
               background: '#18181b',
               border: '1px solid #27272a',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              flexShrink: 0
             }}
           >
             <Settings size={15} color="#a1a1aa" />
             {hasApiKey && (
               <span style={{
                 position: 'absolute',
-                top: '6px',
-                right: '6px',
+                top: '5px',
+                right: '5px',
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                background: '#ffffff',
-                boxShadow: '0 0 6px rgba(255, 255, 255, 0.8)'
+                background: '#ffffff'
               }} />
             )}
           </button>
@@ -140,32 +140,32 @@ export default function Header({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '7px',
-              padding: '4px 12px',
-              height: '36px',
+              gap: '6px',
+              padding: '4px 10px',
+              height: '34px',
               borderRadius: 'var(--radius-md)',
               background: '#18181b',
               border: '1px solid #27272a',
               color: '#ffffff',
               textDecoration: 'none',
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               fontWeight: '600',
-              transition: 'all 0.15s ease'
+              flexShrink: 0
             }}
             className="btn-secondary"
           >
-            <Star size={14} color="#f4f4f5" />
-            <span>Star</span>
+            <Star size={13} color="#f4f4f5" />
+            <span className="mobile-hide-text">Star</span>
             <span style={{
               background: 'rgba(255, 255, 255, 0.1)',
-              padding: '2px 7px',
+              padding: '1px 6px',
               borderRadius: '4px',
-              fontSize: '0.74rem',
+              fontSize: '0.72rem',
               fontWeight: '600',
               color: '#ffffff',
               fontFamily: 'var(--font-mono)'
             }}>
-              {starCount !== null ? starCount : '★'}
+              {starCount !== null ? starCount : '0'}
             </span>
           </a>
 
