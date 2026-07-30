@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, FileText, Code2, Star, Sparkles, Check } from 'lucide-react';
+import { Settings, Target, Code2, Star, Sparkles, Check } from 'lucide-react';
 
 export default function Header({ 
   onGoHome,
@@ -115,7 +115,7 @@ export default function Header({
               background: hasJdKeywords ? '#27272a' : '#18181b'
             }}
           >
-            <FileText size={14} color={hasJdKeywords ? '#ffffff' : '#a1a1aa'} />
+            <Target size={14} color={hasJdKeywords ? '#ffffff' : '#a1a1aa'} />
             <span>{hasJdKeywords ? 'JD Match Active' : 'Match Job Description'}</span>
           </button>
 

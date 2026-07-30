@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FileText, CheckCircle2, Tag, Zap, Code2, Sparkles } from 'lucide-react';
+import { X, Target, CheckCircle2, Tag, Zap, Code2, Sparkles } from 'lucide-react';
 import { extractJdKeywords } from '../services/jdMatcher';
 
 const SAMPLE_ROLES = [
@@ -52,7 +52,7 @@ export default function JdMatcherModal({ isOpen, onClose, onApplyJd, currentJdTe
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FileText size={20} color="#ffffff" />
+            <Target size={20} color="#ffffff" />
             <h2 style={{ fontSize: '1.2rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
               Job Description <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.12em' }}>Keyword Matcher</span>
             </h2>
