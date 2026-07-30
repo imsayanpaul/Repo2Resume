@@ -193,21 +193,25 @@ export default function RepoSelector({
         {/* Match Job Description Button */}
         <button 
           type="button" 
-          className={`btn ${hasJdKeywords ? 'btn-secondary' : 'btn-ghost'} btn-sm`}
+          className="btn btn-sm"
           onClick={onOpenJdModal}
           title="Match Job Description keywords"
           style={{ 
             width: '100%',
             gap: '8px', 
-            height: '38px', 
+            height: '40px', 
             fontSize: '0.82rem',
+            fontWeight: '600',
             borderRadius: 'var(--radius-md)',
-            border: hasJdKeywords ? '1px solid #ffffff' : '1px solid #27272a',
-            background: hasJdKeywords ? '#27272a' : 'transparent'
+            border: hasJdKeywords ? '1px solid rgba(255, 255, 255, 0.5)' : '1px dashed rgba(255, 255, 255, 0.25)',
+            background: hasJdKeywords ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+            color: hasJdKeywords ? '#ffffff' : '#d4d4d8',
+            boxShadow: hasJdKeywords ? '0 0 12px rgba(255, 255, 255, 0.15)' : 'none',
+            transition: 'all 0.2s ease'
           }}
         >
-          <Briefcase size={14} color={hasJdKeywords ? '#ffffff' : '#a1a1aa'} />
-          <span>{hasJdKeywords ? 'JD Match Active' : 'Match Job Description'}</span>
+          <Briefcase size={14} />
+          <span>{hasJdKeywords ? '✓ JD Match Active' : 'Match Job Description'}</span>
         </button>
 
         {/* Generate Resume Bullets */}
