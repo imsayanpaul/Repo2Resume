@@ -94,8 +94,7 @@ export default function App() {
       setRepos(data.repos);
       setGeneratedBullets([]);
       setBulletsCache({});
-      const topIds = data.repos.slice(0, 3).map(r => r.id);
-      setSelectedRepoIds(topIds);
+      setSelectedRepoIds([]);
     } catch (err) {
       console.error(err);
       const msg = err.message || '';
