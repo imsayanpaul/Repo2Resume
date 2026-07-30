@@ -462,40 +462,48 @@ h1, h2, h3, h4, .font-display {
     margin-right: 0 !important;
     margin-top: 32px !important;
     padding: 28px 16px 24px 16px !important;
-    text-align: center !important;
   }
 
   .footer-grid {
-    grid-template-columns: 1fr !important;
-    gap: 28px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 24px 16px !important;
+  }
+
+  .footer-col-brand {
+    grid-column: 1 / -1 !important;
+    align-items: center !important;
     text-align: center !important;
+    padding-bottom: 12px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .footer-col-brand p {
+    text-align: center !important;
+    max-width: 340px !important;
+    margin: 0 auto !important;
+  }
+
+  .footer-col-brand > div {
+    justify-content: center !important;
   }
 
   .footer-col {
-    align-items: center !important;
-    text-align: center !important;
+    align-items: flex-start !important;
+    text-align: left !important;
   }
 
-  .footer-col > div {
-    justify-content: center !important;
-  }
-
-  .footer-col p {
-    text-align: center !important;
+  .footer-col h4 {
+    font-size: 0.78rem !important;
   }
 
   .footer-col ul {
-    align-items: center !important;
-    justify-content: center !important;
+    align-items: flex-start !important;
   }
 
   .footer-col li {
-    justify-content: center !important;
-    text-align: center !important;
-  }
-
-  .footer-col button {
-    text-align: center !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    font-size: 0.8rem !important;
   }
 
   .footer-bottom-bar {
@@ -503,7 +511,7 @@ h1, h2, h3, h4, .font-display {
     align-items: center !important;
     text-align: center !important;
     justify-content: center !important;
-    gap: 12px !important;
+    gap: 10px !important;
   }
 
   .modal-overlay {
