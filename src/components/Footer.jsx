@@ -4,6 +4,7 @@ import { Code2, Github, Star, ShieldCheck, Terminal, ExternalLink, Zap, Lock, Sp
 export default function Footer({ onOpenSettings, onOpenJdModal }) {
   return (
     <footer 
+      className="site-footer"
       style={{ 
         width: '100vw',
         position: 'relative',
@@ -15,16 +16,17 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
         padding: '48px 24px 32px 24px', 
         borderTop: '1px solid rgba(255, 255, 255, 0.1)', 
         background: '#09090c',
-        color: '#ffffff'
+        color: '#ffffff',
+        boxSizing: 'border-box'
       }}
     >
-      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '40px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
         
         {/* Main Grid: 4 Distinct Columns */}
-        <div style={{ 
+        <div className="footer-grid" style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
-          gap: '40px' 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '32px' 
         }}>
           
           {/* Column 1: Brand & Identity */}
@@ -161,14 +163,14 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
         </div>
 
         {/* Bottom Credits & Copyright Bar */}
-        <div style={{ 
+        <div className="footer-bottom-bar" style={{ 
           borderTop: '1px solid rgba(255, 255, 255, 0.08)', 
-          paddingTop: '24px', 
+          paddingTop: '20px', 
           display: 'flex', 
-          justify: 'space-between', 
+          justifyContent: 'space-between', 
           alignItems: 'center', 
           flexWrap: 'wrap', 
-          gap: '16px', 
+          gap: '12px', 
           fontSize: '0.82rem', 
           color: '#64748b' 
         }}>
