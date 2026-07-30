@@ -4,29 +4,31 @@ import { Code2, Github, Star, ShieldCheck, Terminal, ExternalLink, Zap, Lock, Sp
 export default function Footer({ onOpenSettings, onOpenJdModal }) {
   return (
     <footer 
-      className="glass-panel" 
       style={{ 
-        padding: '36px 32px 24px 32px', 
-        marginTop: '32px', 
-        borderRadius: 'var(--radius-lg)', 
-        border: '1px solid rgba(255, 255, 255, 0.12)', 
-        background: 'rgba(18, 18, 21, 0.85)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        boxShadow: '0 20px 48px rgba(0, 0, 0, 0.6)'
+        width: '100vw',
+        position: 'relative',
+        left: '50%',
+        right: '50%',
+        marginLeft: '-50vw',
+        marginRight: '-50vw',
+        marginTop: '64px', 
+        padding: '48px 24px 32px 24px', 
+        borderTop: '1px solid rgba(255, 255, 255, 0.1)', 
+        background: '#09090c',
+        color: '#ffffff'
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '40px' }}>
         
-        {/* Main Grid: 4-Column Professional Developer Layout */}
+        {/* Main Grid: 4 Distinct Columns */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '32px' 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+          gap: '40px' 
         }}>
           
           {/* Column 1: Brand & Identity */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', gridColumn: 'span 1' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{
                 width: '36px',
@@ -34,7 +36,6 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
                 borderRadius: '10px',
                 background: 'linear-gradient(135deg, #27272a 0%, #18181b 100%)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -42,7 +43,7 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
               }}>
                 <Code2 size={18} />
               </div>
-              <span style={{ fontSize: '1.2rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
                 Repo<span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.1em', color: '#f4f4f5' }}>2Resume</span>
               </span>
               <span className="badge" style={{ fontSize: '0.68rem', padding: '2px 7px' }}>
@@ -50,8 +51,8 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
               </span>
             </div>
 
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-              Transform raw GitHub repositories into quantified Google XYZ formula bullet points optimized for technical ATS screeners.
+            <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: '1.6', margin: 0 }}>
+              Convert GitHub repositories into ATS-optimized Google XYZ formula bullet points for technical resumes.
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
@@ -65,7 +66,7 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
                   alignItems: 'center',
                   gap: '6px',
                   fontSize: '0.8rem',
-                  padding: '6px 12px',
+                  padding: '6px 14px',
                   borderRadius: 'var(--radius-md)',
                   background: '#18181b',
                   border: '1px solid #27272a',
@@ -74,43 +75,43 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
                 }}
               >
                 <Star size={13} color="#f4f4f5" />
-                <span>Star Repository</span>
+                <span>Star on GitHub</span>
               </a>
             </div>
           </div>
 
-          {/* Column 2: Generator Engines */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#ffffff', fontFamily: 'var(--font-display)' }}>
+          {/* Column 2: Resume Engines */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f8fafc', fontFamily: 'var(--font-display)', margin: 0 }}>
               Resume Engines
             </h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Zap size={13} color="#a1a1aa" /> Google XYZ Formula
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.84rem', color: '#94a3b8' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap size={14} color="#e2e8f0" /> Google XYZ Formula
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Cpu size={13} color="#a1a1aa" /> STAR Method Generator
+              <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Cpu size={14} color="#e2e8f0" /> STAR Method Generator
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={13} color="#a1a1aa" /> Live Gemini AI Models
+              <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={14} color="#e2e8f0" /> Live Gemini AI Models
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Terminal size={13} color="#a1a1aa" /> Offline Heuristic Fallback
+              <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Terminal size={14} color="#e2e8f0" /> Offline Rule Fallback
               </li>
             </ul>
           </div>
 
-          {/* Column 3: Job Description & Tools */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#ffffff', fontFamily: 'var(--font-display)' }}>
-              Targeting & Tools
+          {/* Column 3: Features & Controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f8fafc', fontFamily: 'var(--font-display)', margin: 0 }}>
+              Features & Controls
             </h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.84rem' }}>
               <li>
                 <button 
                   type="button" 
                   onClick={onOpenJdModal}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', padding: 0, cursor: 'pointer', fontSize: '0.82rem', textAlign: 'left' }}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', padding: 0, cursor: 'pointer', fontSize: '0.84rem', textAlign: 'left' }}
                 >
                   Job Description Matcher
                 </button>
@@ -119,40 +120,40 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
                 <button 
                   type="button" 
                   onClick={onOpenSettings}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', padding: 0, cursor: 'pointer', fontSize: '0.82rem', textAlign: 'left' }}
+                  style={{ background: 'none', border: 'none', color: '#94a3b8', padding: 0, cursor: 'pointer', fontSize: '0.84rem', textAlign: 'left' }}
                 >
                   Settings & API Keys
                 </button>
               </li>
-              <li>LaTeX / Overleaf Export</li>
-              <li>Markdown & Plaintext Export</li>
+              <li style={{ color: '#94a3b8' }}>LaTeX & Overleaf Export</li>
+              <li style={{ color: '#94a3b8' }}>Markdown & Plaintext Export</li>
             </ul>
           </div>
 
-          {/* Column 4: Security & Open Source */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#ffffff', fontFamily: 'var(--font-display)' }}>
-              Open Source & Privacy
+          {/* Column 4: Privacy & Security */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f8fafc', fontFamily: 'var(--font-display)', margin: 0 }}>
+              Privacy & Open Source
             </h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ffffff' }}>
-                <ShieldCheck size={13} color="#22c55e" /> 100% Client-Side Privacy
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.84rem', color: '#94a3b8' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc', fontWeight: '600' }}>
+                <ShieldCheck size={14} color="#22c55e" /> 100% Client-Side Privacy
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Lock size={13} color="#a1a1aa" /> LocalStorage Key Encryption
+              <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Lock size={14} color="#94a3b8" /> LocalStorage Key Security
               </li>
               <li>
                 <a 
                   href="https://github.com/imsayanpaul/Repo2Resume" 
                   target="_blank" 
                   rel="noreferrer"
-                  style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  style={{ color: '#94a3b8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                 >
-                  MIT License Source Code <ExternalLink size={10} />
+                  MIT License Source Code <ExternalLink size={11} />
                 </a>
               </li>
-              <li style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                Run locally: <code className="font-mono" style={{ background: '#18181b', padding: '2px 4px', borderRadius: '4px', color: '#f4f4f5' }}>npm run dev</code>
+              <li style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                Local launch: <code className="font-mono" style={{ background: '#1e293b', padding: '2px 6px', borderRadius: '4px', color: '#f1f5f9' }}>npm run dev</code>
               </li>
             </ul>
           </div>
@@ -162,21 +163,21 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
         {/* Bottom Credits & Copyright Bar */}
         <div style={{ 
           borderTop: '1px solid rgba(255, 255, 255, 0.08)', 
-          paddingTop: '20px', 
+          paddingTop: '24px', 
           display: 'flex', 
           justify: 'space-between', 
           alignItems: 'center', 
           flexWrap: 'wrap', 
-          gap: '12px', 
-          fontSize: '0.8rem', 
-          color: 'var(--text-muted)' 
+          gap: '16px', 
+          fontSize: '0.82rem', 
+          color: '#64748b' 
         }}>
           <div>
-            © {new Date().getFullYear()} <strong style={{ color: '#ffffff' }}>Repo2Resume</strong>. Built for software engineers and open-source developers.
+            © {new Date().getFullYear()} <strong style={{ color: '#f8fafc' }}>Repo2Resume</strong>. Designed for developers & technical job seekers.
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>Crafted with care by</span>
+            <span>Crafted by</span>
             <a 
               href="https://github.com/imsayanpaul" 
               target="_blank" 
@@ -185,16 +186,16 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
                 color: '#ffffff', 
                 fontWeight: '600', 
                 textDecoration: 'none',
-                background: '#18181b',
-                border: '1px solid #27272a',
-                padding: '2px 8px',
+                background: '#1e293b',
+                border: '1px solid #334155',
+                padding: '3px 10px',
                 borderRadius: '6px',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px'
+                gap: '5px'
               }}
             >
-              <Github size={12} /> @imsayanpaul
+              <Github size={13} /> @imsayanpaul
             </a>
           </div>
         </div>
