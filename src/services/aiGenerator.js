@@ -10,12 +10,13 @@
  * @param {String} tone - 'xyz' | 'star' | 'technical' | 'ats'
  * @param {String} apiKey - User's Gemini API Key (optional)
  * @param {Array} jdKeywords - Target Job Description matching keywords (optional)
+ * @param {String} customInstruction - Specific user instructions for the bullet generation
  */
-export async function generateRepoBullets(repo, tone = 'xyz', apiKey = '', jdKeywords = []) {
+export async function generateRepoBullets(repo, tone = 'xyz', apiKey = '', jdKeywords = [], customInstruction = '') {
   // 1. If Gemini API Key is provided, use live Gemini API
   if (apiKey && apiKey.trim() !== '') {
     try {
-      return await generateBulletsWithGemini(repo, tone, apiKey, jdKeywords);
+      return await generateBulletsWithGemini(repo, tone, apiKey, jdKeywords, customInstruction);
     } catch (err) {
       console.warn('Gemini API call failed, falling back to smart rule engine:', err.message);
     }
@@ -28,7 +29,7 @@ export async function generateRepoBullets(repo, tone = 'xyz', apiKey = '', jdKey
 /**
  * Call Gemini API directly from browser using available models
  */
-async function generateBulletsWithGemini(repo, tone, apiKey, jdKeywords) {
+async function generateBulletsWithGemini(repo, tone, apiKey, jdKeywords, customInstruction = '') {
   const prompt = `You are a world-class technical resume reviewer and ATS optimization expert.
 Write 3 high-impact, professional resume bullet points for a software engineering project based on this GitHub repository:
 
@@ -40,6 +41,7 @@ Topics/Keywords: ${repo.topics.join(', ')}
 Stars: ${repo.stargazers_count}
 ${repo.readmeText ? `README Content Summary: ${repo.readmeText.slice(0, 1000)}` : ''}
 ${jdKeywords.length > 0 ? `Target Job Keywords to emphasize: ${jdKeywords.join(', ')}` : ''}
+${customInstruction ? `USER SPECIFIC REGENERATION INSTRUCTION / CUSTOM REQUEST: ${customInstruction}` : ''}
 
 Tone/Style Requirements: ${tone === 'xyz' ? 'Google XYZ Formula (Accomplished X using Y, resulting in quantitative impact Z)' : tone === 'star' ? 'STAR Method (Situation/Task, Action taken, Result achieved)' : 'Concise ATS Bullet Points with strong action verbs'}.
 

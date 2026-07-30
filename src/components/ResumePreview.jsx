@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal } from 'lucide-react';
+import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal, Sparkles, Send, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const TONES = [
@@ -40,6 +40,8 @@ export default function ResumePreview({
   const [viewMode, setViewMode] = useState('formatted'); // 'formatted' | 'markdown' | 'latex' | 'json'
   const [copied, setCopied] = useState(false);
   const [hoveredTone, setHoveredTone] = useState(null);
+  const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
+  const [customPromptText, setCustomPromptText] = useState('');
 
   // Per-Project Link Settings: { [repoId]: { showGithub: true, showDemo: false, demoUrl: '' } }
   const [projectLinkConfigs, setProjectLinkConfigs] = useState({});
@@ -429,19 +431,99 @@ export default function ResumePreview({
         </div>
       )}
 
-      {/* Footer Regenerate Action */}
-      {generatedBullets.length > 0 && !isGenerating && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', flexShrink: 0 }}>
-          <button 
-            type="button" 
-            className="btn btn-secondary btn-sm"
-            onClick={onRegenerate}
-            disabled={isGenerating}
-            style={{ fontSize: '0.8rem' }}
-          >
-            <RefreshCw size={13} className={isGenerating ? 'spin' : ''} />
-            <span>Regenerate Bullets</span>
-          </button>
+      {/* Footer Regenerate & Specific Request Actions */}
+      {generatedBullets.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', flexShrink: 0 }}>
+          
+          {/* Expandable Custom Instruction Input Bar */}
+          {isCustomPromptOpen && (
+            <div className="glass-panel animate-fade-in-up" style={{ padding: '12px 14px', background: '#121216', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-accent)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={14} color="#ffffff" /> Regenerate with Specific Request
+                </span>
+                <button type="button" className="btn-ghost" onClick={() => setIsCustomPromptOpen(false)} style={{ padding: '2px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Quick Suggestion Chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {[
+                  '⚡ Emphasize 40% speedup & quantitative metrics',
+                  '🛡️ Highlight testing, security & code coverage',
+                  '🏗️ Focus on microservice backend architecture',
+                  '🎯 Make concise for a 1-page resume'
+                ].map(chip => (
+                  <button
+                    key={chip}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setCustomPromptText(chip.replace(/^[^\w\s]+/, '').trim())}
+                    style={{ fontSize: '0.73rem', padding: '3px 9px', height: '24px', borderRadius: '12px', background: '#18181b', border: '1px solid #27272a' }}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Input & Send Action */}
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!customPromptText.trim() || isGenerating) return;
+                  onRegenerate(customPromptText.trim());
+                }} 
+                style={{ display: 'flex', gap: '8px' }}
+              >
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. Focus heavily on Docker, AWS deployment, and latency metrics..."
+                  value={customPromptText}
+                  onChange={(e) => setCustomPromptText(e.target.value)}
+                  style={{ flex: 1, height: '36px', fontSize: '0.82rem' }}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={!customPromptText.trim() || isGenerating}
+                  style={{ height: '36px', padding: '0 14px', gap: '6px', fontSize: '0.8rem' }}
+                >
+                  {isGenerating ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
+                  <span>Regenerate</span>
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Action Buttons Bar */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+            <button 
+              type="button" 
+              className={`btn ${isCustomPromptOpen ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+              onClick={() => setIsCustomPromptOpen(prev => !prev)}
+              disabled={isGenerating}
+              style={{ fontSize: '0.8rem', gap: '6px' }}
+              title="Regenerate with specific instructions or prompt"
+            >
+              <Sparkles size={13} />
+              <span>Specific Request</span>
+            </button>
+
+            <button 
+              type="button" 
+              className="btn btn-secondary btn-sm"
+              onClick={() => onRegenerate('')}
+              disabled={isGenerating}
+              style={{ fontSize: '0.8rem', gap: '6px' }}
+              title="Regenerate bullet points"
+            >
+              <RefreshCw size={13} className={isGenerating ? 'spin' : ''} />
+              <span>Regenerate Bullets</span>
+            </button>
+          </div>
+
         </div>
       )}
 

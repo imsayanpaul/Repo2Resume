@@ -34,11 +34,11 @@ export default function App() {
   const [githubToken, setGithubToken] = useState(() => localStorage.getItem('gitresume_gh_token') || '');
 
   // Generate Bullets for selected repos with Cache Support
-  const handleGenerateBullets = useCallback(async (toneOverride = null, forceRegenerate = false) => {
+  const handleGenerateBullets = useCallback(async (toneOverride = null, forceRegenerate = false, customInstruction = '') => {
     if (selectedRepoIds.length === 0) return;
     const toneToUse = toneOverride || activeTone;
 
-    if (!forceRegenerate && bulletsCache[toneToUse]) {
+    if (!forceRegenerate && !customInstruction && bulletsCache[toneToUse]) {
       setGeneratedBullets(bulletsCache[toneToUse]);
       return;
     }
@@ -54,7 +54,7 @@ export default function App() {
         if (!repo.readmeText) {
           repo.readmeText = await fetchRepoReadme(repo.full_name, githubToken);
         }
-        const bullets = await generateRepoBullets(repo, toneToUse, geminiApiKey, jdKeywords);
+        const bullets = await generateRepoBullets(repo, toneToUse, geminiApiKey, jdKeywords, customInstruction);
         results.push({
           repoId: repo.id,
           repoName: repo.name,
@@ -152,8 +152,8 @@ export default function App() {
     }
   };
 
-  const handleForceRegenerate = () => {
-    handleGenerateBullets(activeTone, true);
+  const handleForceRegenerate = (customInstruction = '') => {
+    handleGenerateBullets(activeTone, true, typeof customInstruction === 'string' ? customInstruction : '');
   };
 
   const handleSaveGeminiKey = (key) => {
