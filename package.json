@@ -1,5 +1,6 @@
 {
   "name": "repo2resume",
+  "description": "Repo2Resume",
   "private": true,
   "version": "1.0.0",
   "type": "module",
