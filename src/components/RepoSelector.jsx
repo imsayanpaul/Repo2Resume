@@ -75,13 +75,13 @@ export default function RepoSelector({
           placeholder="Filter repositories..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ flex: 1, minWidth: '140px', height: '36px', fontSize: '0.84rem' }}
+          style={{ flex: 1, minWidth: '140px', height: '36px', padding: '0 12px', fontSize: '0.84rem', lineHeight: '36px', boxSizing: 'border-box' }}
         />
         <select 
           className="input-field repo-lang-select"
           value={selectedLang}
           onChange={(e) => setSelectedLang(e.target.value)}
-          style={{ width: 'auto', minWidth: '110px', height: '36px', fontSize: '0.84rem' }}
+          style={{ width: 'auto', minWidth: '125px', height: '36px', fontSize: '0.84rem', lineHeight: '36px', boxSizing: 'border-box' }}
         >
           {availableLangs.map(l => (
             <option key={l} value={l}>{l === 'ALL' ? 'All Languages' : l}</option>
