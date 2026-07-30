@@ -450,16 +450,16 @@ export default function ResumePreview({
               {/* Quick Suggestion Chips */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {[
-                  '⚡ Emphasize 40% speedup & quantitative metrics',
-                  '🛡️ Highlight testing, security & code coverage',
-                  '🏗️ Focus on microservice backend architecture',
-                  '🎯 Make concise for a 1-page resume'
+                  'Emphasize 40% speedup & quantitative metrics',
+                  'Highlight testing, security & code coverage',
+                  'Focus on microservice backend architecture',
+                  'Make concise for a 1-page resume'
                 ].map(chip => (
                   <button
                     key={chip}
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={() => setCustomPromptText(chip.replace(/^[^\w\s]+/, '').trim())}
+                    onClick={() => setCustomPromptText(chip)}
                     style={{ fontSize: '0.73rem', padding: '3px 9px', height: '24px', borderRadius: '12px', background: '#18181b', border: '1px solid #27272a' }}
                   >
                     {chip}
