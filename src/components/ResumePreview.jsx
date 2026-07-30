@@ -234,24 +234,9 @@ export default function ResumePreview({
             </button>
           </div>
 
-          <button 
-            type="button" 
-            className={`btn ${copied ? 'btn-secondary' : 'btn-primary'} btn-sm`} 
-            onClick={handleCopy} 
-            disabled={generatedBullets.length === 0 || isGenerating} 
-            title="Copy formatted resume text to Clipboard" 
-            style={{ 
-              height: '32px', 
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              padding: '0 14px',
-              gap: '6px',
-              borderRadius: 'var(--radius-sm)',
-              boxShadow: generatedBullets.length > 0 ? '0 0 14px rgba(255, 255, 255, 0.25)' : 'none'
-            }}
-          >
-            {copied ? <Check size={14} color="#ffffff" /> : <Copy size={14} />}
-            <span>{copied ? 'Copied to Clipboard!' : 'Copy Resume'}</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopy} disabled={generatedBullets.length === 0 || isGenerating} title="Copy text to Clipboard" style={{ height: '30px', fontSize: '0.78rem' }}>
+            {copied ? <Check size={13} color="#ffffff" /> : <Copy size={13} />}
+            <span>{copied ? 'Copied!' : 'Copy'}</span>
           </button>
         </div>
 
@@ -301,7 +286,7 @@ export default function ResumePreview({
         </div>
       ) : generatedBullets.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <Code2 size={40} style={{ marginBottom: '12px', opacity: 0.4, color: '#ffffff' }} />
+          <Layers size={40} style={{ marginBottom: '12px', opacity: 0.4, color: '#ffffff' }} />
           <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#ffffff', marginBottom: '6px', fontFamily: 'var(--font-display)' }}>
             No Resume Bullets <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.08em' }}>Generated Yet</span>
           </h3>
