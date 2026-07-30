@@ -48,7 +48,7 @@ Tone/Style Requirements: ${tone === 'xyz' ? 'Google XYZ Formula (Accomplished X 
 Return ONLY a valid JSON array of strings containing the 3 bullet points, without markdown codeblock wrapper or extra explanation.
 Example: ["Architected...", "Engineered...", "Optimized..."]`;
 
-  const modelsToTry = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.0-flash'];
+  const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError = null;
 
   for (const model of modelsToTry) {
