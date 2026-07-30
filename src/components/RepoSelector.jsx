@@ -48,7 +48,7 @@ export default function RepoSelector({
   }, [repos, searchTerm, selectedLang, jdKeywords]);
 
   return (
-    <div className="glass-panel repo-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+    <div className="glass-panel repo-sidebar" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0, overflowX: 'hidden' }}>
       
       {/* User Info Header */}
       {user && (
@@ -130,16 +130,14 @@ export default function RepoSelector({
                   transition: 'all 0.15s ease',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
-                  overflow: 'hidden',
-                  minWidth: 0
+                  gap: '6px'
                 }}
               >
                 {/* Top Title Bar */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                     {isSelected ? <CheckSquare size={16} color="#ffffff" style={{ flexShrink: 0 }} /> : <Square size={16} color="#71717a" style={{ flexShrink: 0 }} />}
-                    <h3 style={{ fontSize: '0.88rem', fontWeight: '600', color: isSelected ? '#ffffff' : 'var(--text-primary)', fontFamily: 'var(--font-display)', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    <h3 style={{ fontSize: '0.88rem', fontWeight: '600', color: isSelected ? '#ffffff' : 'var(--text-primary)', fontFamily: 'var(--font-display)', wordBreak: 'break-word' }}>
                       {repo.name}
                     </h3>
                   </div>
@@ -154,7 +152,7 @@ export default function RepoSelector({
 
                 {/* Cleaned Description */}
                 {cleanedDesc && (
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', wordBreak: 'break-word', overflowWrap: 'break-word', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
                     {cleanedDesc}
                   </p>
                 )}
@@ -173,7 +171,7 @@ export default function RepoSelector({
                     </span>
                   ))}
 
-                  <div className="font-mono" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <div className="font-mono" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                       <Star size={11} color="#e2e8f0" /> {repo.stargazers_count}
                     </span>
