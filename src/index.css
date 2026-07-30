@@ -462,17 +462,48 @@ h1, h2, h3, h4, .font-display {
     margin-right: 0 !important;
     margin-top: 32px !important;
     padding: 28px 16px 24px 16px !important;
+    text-align: center !important;
   }
 
   .footer-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 24px 16px !important;
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+    text-align: center !important;
+  }
+
+  .footer-col {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .footer-col > div {
+    justify-content: center !important;
+  }
+
+  .footer-col p {
+    text-align: center !important;
+  }
+
+  .footer-col ul {
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .footer-col li {
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  .footer-col button {
+    text-align: center !important;
   }
 
   .footer-bottom-bar {
     flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 10px !important;
+    align-items: center !important;
+    text-align: center !important;
+    justify-content: center !important;
+    gap: 12px !important;
   }
 
   .modal-overlay {

@@ -30,7 +30,7 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
         }}>
           
           {/* Column 1: Brand & Identity */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="footer-col footer-col-brand" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{
                 width: '36px',
@@ -83,7 +83,7 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
           </div>
 
           {/* Column 2: Resume Engines */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="footer-col" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f8fafc', fontFamily: 'var(--font-display)', margin: 0 }}>
               Resume Engines
             </h4>
@@ -104,7 +104,7 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
           </div>
 
           {/* Column 3: Features & Controls */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="footer-col" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f8fafc', fontFamily: 'var(--font-display)', margin: 0 }}>
               Features & Controls
             </h4>
@@ -133,7 +133,7 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
           </div>
 
           {/* Column 4: Privacy & Security */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="footer-col" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <h4 style={{ fontSize: '0.82rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f8fafc', fontFamily: 'var(--font-display)', margin: 0 }}>
               Privacy & Open Source
             </h4>
