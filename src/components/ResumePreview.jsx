@@ -309,7 +309,6 @@ export default function ResumePreview({
         </div>
       ) : generatedBullets.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <Sparkles size={36} style={{ marginBottom: '12px', opacity: 0.4, color: '#ffffff' }} />
           <h3 style={{ fontSize: '1.05rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
             No Resume Bullets Generated Yet
           </h3>
