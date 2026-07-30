@@ -24,6 +24,7 @@ export default function App() {
   // Modals
   const [isJdOpen, setIsJdOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [rateLimitReason, setRateLimitReason] = useState(null); // 'github' | 'gemini' | null
   const [jdText, setJdText] = useState('');
   const [jdKeywords, setJdKeywords] = useState([]);
 
@@ -67,7 +68,12 @@ export default function App() {
       }));
     } catch (err) {
       console.error('Error generating bullets:', err);
-      setErrorMsg(err.message || 'Failed to generate resume bullet points.');
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('quota') || msg.includes('429') || msg.includes('403')) {
+        setRateLimitReason('gemini');
+        setIsSettingsOpen(true);
+      }
+      setErrorMsg(msg || 'Failed to generate resume bullet points.');
     } finally {
       setLoading(false);
     }
@@ -88,7 +94,12 @@ export default function App() {
       setSelectedRepoIds(topIds);
     } catch (err) {
       console.error(err);
-      setErrorMsg(err.message);
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('rate limit') || msg.includes('403') || msg.includes('429')) {
+        setRateLimitReason('github');
+        setIsSettingsOpen(true);
+      }
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
@@ -380,11 +391,16 @@ export default function App() {
 
       <SettingsModal 
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => {
+          setIsSettingsOpen(false);
+          setRateLimitReason(null);
+        }}
         geminiApiKey={geminiApiKey}
         onSaveGeminiKey={handleSaveGeminiKey}
         githubToken={githubToken}
         onSaveGithubToken={handleSaveGithubToken}
+        rateLimitReason={rateLimitReason}
+        onClearRateLimitReason={() => setRateLimitReason(null)}
       />
 
     </div>

@@ -69,7 +69,11 @@ Example: ["Architected...", "Engineered...", "Optimized..."]`;
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        lastError = new Error(errorData?.error?.message || `HTTP ${response.status}`);
+        const msg = errorData?.error?.message || `HTTP ${response.status}`;
+        if (response.status === 429 || msg.includes('RESOURCE_EXHAUSTED') || msg.toLowerCase().includes('quota')) {
+          throw new Error('Gemini API quota exhausted or rate limited. Please add your free Gemini API key in Settings.');
+        }
+        lastError = new Error(msg);
       }
     } catch (err) {
       lastError = err;
