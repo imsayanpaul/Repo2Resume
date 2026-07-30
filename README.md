@@ -112,5 +112,3 @@ VITE_GITHUB_TOKEN=your_github_token_here
 ## 📜 License
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
-
-Developed with ❤️ by **Sayan Paul** ([@imsayanpaul](https://github.com/imsayanpaul)).
