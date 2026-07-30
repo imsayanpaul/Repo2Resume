@@ -190,9 +190,7 @@ export default function App() {
       <Header 
         onGoHome={handleGoHome}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenJdModal={() => setIsJdOpen(true)}
         activeUsername={userData?.username}
-        hasJdKeywords={jdKeywords.length > 0}
         hasApiKey={Boolean(geminiApiKey)}
       />
 
@@ -433,6 +431,8 @@ export default function App() {
             jdKeywords={jdKeywords}
             onGenerate={handleForceRegenerate}
             isGenerating={loading}
+            onOpenJdModal={() => setIsJdOpen(true)}
+            hasJdKeywords={jdKeywords.length > 0}
           />
 
           {/* Right Main Panel: Live Resume Preview & Editor */}

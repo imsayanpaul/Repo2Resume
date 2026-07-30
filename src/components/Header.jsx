@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Briefcase, Code2, Star, Sparkles, Check } from 'lucide-react';
+import { Settings, Code2, Star, Sparkles, Check } from 'lucide-react';
 
 export default function Header({ 
   onGoHome,
   onOpenSettings, 
-  onOpenJdModal, 
   activeUsername, 
-  hasJdKeywords, 
   hasApiKey 
 }) {
   const [starCount, setStarCount] = useState(null);
@@ -98,26 +96,6 @@ export default function Header({
 
         {/* Right Navigation Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          
-          {/* Job Description Matcher Button */}
-          <button 
-            type="button" 
-            className={`btn btn-secondary btn-sm ${hasJdKeywords ? 'badge-primary' : ''}`}
-            onClick={onOpenJdModal}
-            title="Match Job Description keywords"
-            style={{ 
-              gap: '6px', 
-              height: '36px', 
-              fontSize: '0.82rem',
-              padding: '0 14px',
-              borderRadius: 'var(--radius-md)',
-              border: hasJdKeywords ? '1px solid #ffffff' : '1px solid #27272a',
-              background: hasJdKeywords ? '#27272a' : '#18181b'
-            }}
-          >
-            <Briefcase size={14} color={hasJdKeywords ? '#ffffff' : '#a1a1aa'} />
-            <span>{hasJdKeywords ? 'JD Match Active' : 'Match Job Description'}</span>
-          </button>
 
           {/* Settings Modal Button */}
           <button 

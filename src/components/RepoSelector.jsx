@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Star, GitFork, CheckSquare, Square, Filter, Code2, AlertCircle, Loader2, Terminal } from 'lucide-react';
+import { Star, GitFork, CheckSquare, Square, Filter, Code2, AlertCircle, Loader2, Terminal, Briefcase } from 'lucide-react';
 import { matchRepoToJd } from '../services/jdMatcher';
 
 // Helper to strip raw GitHub shortcode emojis (e.g. :zap:, :sparkles:)
@@ -17,7 +17,9 @@ export default function RepoSelector({
   onDeselectAll,
   jdKeywords,
   onGenerate,
-  isGenerating
+  isGenerating,
+  onOpenJdModal,
+  hasJdKeywords
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLang, setSelectedLang] = useState('ALL');
@@ -185,8 +187,30 @@ export default function RepoSelector({
         )}
       </div>
 
-      {/* Pinned Generate Action Button */}
-      <div style={{ flexShrink: 0, paddingTop: '6px' }}>
+      {/* Pinned Bottom Actions */}
+      <div style={{ flexShrink: 0, paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        
+        {/* Match Job Description Button */}
+        <button 
+          type="button" 
+          className={`btn ${hasJdKeywords ? 'btn-secondary' : 'btn-ghost'} btn-sm`}
+          onClick={onOpenJdModal}
+          title="Match Job Description keywords"
+          style={{ 
+            width: '100%',
+            gap: '8px', 
+            height: '38px', 
+            fontSize: '0.82rem',
+            borderRadius: 'var(--radius-md)',
+            border: hasJdKeywords ? '1px solid #ffffff' : '1px solid #27272a',
+            background: hasJdKeywords ? '#27272a' : 'transparent'
+          }}
+        >
+          <Briefcase size={14} color={hasJdKeywords ? '#ffffff' : '#a1a1aa'} />
+          <span>{hasJdKeywords ? 'JD Match Active' : 'Match Job Description'}</span>
+        </button>
+
+        {/* Generate Resume Bullets */}
         <button 
           type="button" 
           className="btn btn-primary"
