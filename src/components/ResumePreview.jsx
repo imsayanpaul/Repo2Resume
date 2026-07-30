@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal, Sparkles, Send, X } from 'lucide-react';
+import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal, Sparkles, Wand2, Send, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const TONES = [
@@ -440,7 +440,7 @@ export default function ResumePreview({
             <div className="glass-panel animate-fade-in-up" style={{ padding: '12px 14px', background: '#121216', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-accent)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={14} color="#ffffff" /> Regenerate with Specific Request
+                  <Wand2 size={14} color="#ffffff" /> Regenerate with Specific Request
                 </span>
                 <button type="button" className="btn-ghost" onClick={() => setIsCustomPromptOpen(false)} style={{ padding: '2px', cursor: 'pointer', color: 'var(--text-muted)' }}>
                   <X size={14} />
@@ -507,7 +507,7 @@ export default function ResumePreview({
               style={{ fontSize: '0.8rem', gap: '6px' }}
               title="Regenerate with specific instructions or prompt"
             >
-              <Sparkles size={13} />
+              <Wand2 size={13} />
               <span>Specific Request</span>
             </button>
 
