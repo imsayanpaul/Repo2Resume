@@ -3,7 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-white.svg?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-v1.0-emerald.svg?style=flat-square)](#)
 [![Stack](https://img.shields.io/badge/Stack-React%20%7C%20Vite%20%7C%20Gemini%20AI-silver.svg?style=flat-square)](#)
-[![Deployment](https://img.shields.io/badge/Deploy-Vercel%20Ready-black.svg?style=flat-square)](https://vercel.com)
 
 **Turn GitHub Repositories into ATS-Winning Resume Bullets.**
 
@@ -107,17 +106,6 @@ VITE_GITHUB_TOKEN=your_github_token_here
 ```
 
 *Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).*
-
----
-
-## 🌐 Deploy to Vercel in 1 Click
-
-Repo2Resume includes a pre-configured [vercel.json](vercel.json) file:
-
-1. Import `imsayanpaul/Repo2Resume` on [Vercel](https://vercel.com/new).
-2. Set **Framework Preset**: `Vite`.
-3. *(Optional)* Add Environment Variable: `VITE_GEMINI_API_KEY`.
-4. Click **Deploy**.
 
 ---
 
