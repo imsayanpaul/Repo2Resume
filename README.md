@@ -14,10 +14,10 @@ Instantly convert your public GitHub projects into high-impact, ATS-optimized bu
 ## 📸 Interface Previews
 
 ### 1. Executive Hero Landing Experience
-![Repo2Resume Hero Banner](src/hero-preview.png)
+![Repo2Resume Hero Banner](src/1.png)
 
 ### 2. Dual-Pane Workspace & Live Bullet Editor
-![Repo2Resume Workspace Preview](src/workspace-preview.png)
+![Repo2Resume Workspace Preview](src/2.png)
 
 ---
 
