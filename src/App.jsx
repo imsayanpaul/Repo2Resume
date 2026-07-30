@@ -239,7 +239,7 @@ export default function App() {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Enter GitHub username (e.g. torvalds)..."
+                  placeholder="Enter GitHub username (e.g. imsayanpaul)..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   style={{ paddingLeft: '44px', height: '48px', fontSize: '0.94rem' }}
@@ -253,7 +253,7 @@ export default function App() {
             {/* Quick Profile Suggestions */}
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               <span>Sample profiles:</span>
-              {['gaearon', 'yyx99', 'sindresorhus', 'torvalds'].map(name => (
+              {['imsayanpaul', 'gaearon', 'yyx99', 'torvalds'].map(name => (
                 <button
                   key={name}
                   type="button"
