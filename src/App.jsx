@@ -410,7 +410,10 @@ export default function App() {
 
           </div>
 
-          <Footer />
+          <Footer 
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenJdModal={() => setIsJdOpen(true)}
+          />
 
         </div>
       ) : (
