@@ -228,8 +228,8 @@ export default function App() {
                 Turn GitHub Repositories into <br />
                 <span className="font-serif-italic" style={{ color: '#ffffff', fontSize: '1.22em', paddingRight: '4px' }}>ATS-Winning</span> Resume Bullets.
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '620px', margin: '0 auto', lineHeight: '1.6' }}>
-                Inspect public GitHub repositories, extract technical architecture and dependencies, and generate quantified Google XYZ formula achievements.
+              <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '640px', margin: '0 auto', lineHeight: '1.6' }}>
+                Instantly convert your public GitHub projects into high-impact, ATS-optimized bullet points ready to copy & paste directly into the <strong style={{ color: '#ffffff', fontWeight: '600' }}>Projects section</strong> of your resume.
               </p>
             </div>
 

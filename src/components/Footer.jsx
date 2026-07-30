@@ -52,7 +52,7 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
             </div>
 
             <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: '1.6', margin: 0 }}>
-              Convert GitHub repositories into ATS-optimized Google XYZ formula bullet points for technical resumes.
+              Instantly convert your GitHub codebases into high-impact, ATS-optimized bullet points ready for your resume's Projects section.
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
