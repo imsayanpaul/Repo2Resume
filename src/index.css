@@ -452,10 +452,16 @@ h1, h2, h3, h4, .font-display {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .repo-sidebar {
     padding: 12px 10px !important;
+  }
+
+  .repo-sidebar * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   header {
@@ -503,7 +509,7 @@ h1, h2, h3, h4, .font-display {
     gap: 6px !important;
   }
 
-  .repo-sidebar, .glass-panel {
+  .glass-panel {
     padding: 14px !important;
   }
 

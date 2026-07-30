@@ -48,11 +48,11 @@ export default function RepoSelector({
   }, [repos, searchTerm, selectedLang, jdKeywords]);
 
   return (
-    <div className="glass-panel repo-sidebar" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0 }}>
+    <div className="glass-panel repo-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0, overflow: 'hidden' }}>
       
       {/* User Info Header */}
       {user && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px', flexShrink: 0, minWidth: 0, overflow: 'hidden' }}>
           <img 
             src={user.avatar_url} 
             alt={user.name} 
@@ -106,7 +106,7 @@ export default function RepoSelector({
       </div>
 
       {/* Repositories Scrollable List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
         {processedRepos.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
             <AlertCircle size={26} style={{ marginBottom: '8px', opacity: 0.6 }} />
@@ -130,7 +130,9 @@ export default function RepoSelector({
                   transition: 'all 0.15s ease',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px'
+                  gap: '6px',
+                  overflow: 'hidden',
+                  minWidth: 0
                 }}
               >
                 {/* Top Title Bar */}
