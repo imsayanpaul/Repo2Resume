@@ -134,17 +134,17 @@ export default function RepoSelector({
                 }}
               >
                 {/* Top Title Bar */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {isSelected ? <CheckSquare size={16} color="#ffffff" /> : <Square size={16} color="#71717a" />}
-                    <h3 style={{ fontSize: '0.88rem', fontWeight: '600', color: isSelected ? '#ffffff' : 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    {isSelected ? <CheckSquare size={16} color="#ffffff" style={{ flexShrink: 0 }} /> : <Square size={16} color="#71717a" style={{ flexShrink: 0 }} />}
+                    <h3 style={{ fontSize: '0.88rem', fontWeight: '600', color: isSelected ? '#ffffff' : 'var(--text-primary)', fontFamily: 'var(--font-display)', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                       {repo.name}
                     </h3>
                   </div>
 
                   {/* JD Match Badge */}
                   {jdKeywords && jdKeywords.length > 0 && repo.scorePercent > 0 && (
-                    <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                    <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '1px 6px', flexShrink: 0 }}>
                       {repo.scorePercent}% Match
                     </span>
                   )}
@@ -152,13 +152,13 @@ export default function RepoSelector({
 
                 {/* Cleaned Description */}
                 {cleanedDesc && (
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', wordBreak: 'break-word', overflowWrap: 'break-word', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
                     {cleanedDesc}
                   </p>
                 )}
 
                 {/* Tech Stack & Stats Badges */}
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', marginTop: '2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', marginTop: '2px', width: '100%' }}>
                   {repo.language && (
                     <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
                       <Code2 size={11} /> {repo.language}
@@ -171,7 +171,7 @@ export default function RepoSelector({
                     </span>
                   ))}
 
-                  <div className="font-mono" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <div className="font-mono" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                       <Star size={11} color="#e2e8f0" /> {repo.stargazers_count}
                     </span>
