@@ -221,20 +221,20 @@ export default function App() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '960px', margin: '24px auto 0 auto', width: '100%' }}>
           
           {/* Main Hero Box */}
-          <div className="glass-panel animate-fade-in-up" style={{ padding: '52px 40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+          <div className="glass-panel animate-fade-in-up hero-box" style={{ padding: '52px 40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
             
             <div>
-              <h2 style={{ fontSize: '2.75rem', fontWeight: '700', lineHeight: '1.25', marginBottom: '14px', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
+              <h2 className="hero-title" style={{ fontSize: '2.75rem', fontWeight: '700', lineHeight: '1.25', marginBottom: '14px', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
                 Turn GitHub Repositories into <br />
                 <span className="font-serif-italic" style={{ color: '#ffffff', fontSize: '1.22em', paddingRight: '4px' }}>ATS-Winning</span> Resume Bullets.
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '640px', margin: '0 auto', lineHeight: '1.6' }}>
+              <p className="hero-subtitle" style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '640px', margin: '0 auto', lineHeight: '1.6' }}>
                 Instantly convert your public GitHub projects into high-impact, ATS-optimized bullet points ready to copy & paste directly into the <strong style={{ color: '#ffffff', fontWeight: '600' }}>Projects section</strong> of your resume.
               </p>
             </div>
 
             {/* Direct Search Form */}
-            <form onSubmit={(e) => { e.preventDefault(); handleSearchUser(searchInput); }} style={{ width: '100%', maxWidth: '500px', display: 'flex', gap: '10px' }}>
+            <form className="hero-search-form" onSubmit={(e) => { e.preventDefault(); handleSearchUser(searchInput); }} style={{ width: '100%', maxWidth: '500px', display: 'flex', gap: '10px' }}>
               <div style={{ position: 'relative', flex: 1 }}>
                 <Github size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
@@ -252,7 +252,7 @@ export default function App() {
             </form>
 
             {/* Quick Profile Suggestions */}
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            <div className="sample-profiles-container" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               <span>Sample profiles:</span>
               {['imsayanpaul', 'gaearon', 'yyx99', 'torvalds'].map(name => (
                 <button
