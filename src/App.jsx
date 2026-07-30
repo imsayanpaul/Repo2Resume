@@ -286,7 +286,7 @@ export default function App() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <h4 style={{ fontSize: '0.95rem', fontWeight: '600', color: '#ffffff' }}>
                     react-concurrent-renderer
                   </h4>
@@ -306,10 +306,12 @@ export default function App() {
                       padding: '2px 7px',
                       borderRadius: '4px',
                       border: '1px solid #27272a',
-                      textDecoration: 'none'
+                      textDecoration: 'none',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
                     }}
                   >
-                    <Github size={11} /> GitHub <ExternalLink size={9} />
+                    <Github size={11} style={{ flexShrink: 0 }} /> GitHub <ExternalLink size={9} style={{ flexShrink: 0 }} />
                   </a>
 
                   {/* Sample Live Demo Link Badge */}
@@ -327,10 +329,12 @@ export default function App() {
                       padding: '2px 7px',
                       borderRadius: '4px',
                       border: '1px solid #27272a',
-                      textDecoration: 'none'
+                      textDecoration: 'none',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
                     }}
                   >
-                    <Globe size={11} /> Live Demo <ExternalLink size={9} />
+                    <Globe size={11} style={{ flexShrink: 0 }} /> Live Demo <ExternalLink size={9} style={{ flexShrink: 0 }} />
                   </a>
                 </div>
 

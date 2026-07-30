@@ -538,10 +538,12 @@ function itemLinkBadge(url, label, icon) {
         padding: '2px 8px',
         borderRadius: '4px',
         border: '1px solid #27272a',
-        textDecoration: 'none'
+        textDecoration: 'none',
+        whiteSpace: 'nowrap',
+        flexShrink: 0
       }}
     >
-      {icon} {label} <ExternalLink size={10} />
+      {icon} <span>{label}</span> <ExternalLink size={10} style={{ flexShrink: 0 }} />
     </a>
   );
 }
