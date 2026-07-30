@@ -296,6 +296,38 @@ h1, h2, h3, h4, .font-display {
   height: 100%;
 }
 
+/* Tone Selector & Project Toolbars */
+.tone-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #0f0f12;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-muted);
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tone-selector-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.project-links-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 2px;
+  font-size: 0.76rem;
+  background: #18181b;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-muted);
+}
+
 @media (max-width: 1024px) {
   .app-container.workspace-active {
     height: auto;
@@ -454,6 +486,50 @@ h1, h2, h3, h4, .font-display {
     padding: 14px !important;
   }
 
+  .tone-selector-bar {
+    width: 100%;
+  }
+
+  .tone-selector-bar button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .preview-top-toolbar {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .preview-actions-bar {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .project-links-bar {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .demo-url-container {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .demo-url-container input {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .repo-item-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
   .site-footer {
     width: 100% !important;
     left: auto !important;
@@ -543,5 +619,18 @@ h1, h2, h3, h4, .font-display {
   .btn {
     padding: 6px 12px;
     font-size: 0.8rem;
+  }
+
+  .resume-paper {
+    padding: 14px !important;
+  }
+
+  .preview-actions-bar > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .preview-actions-bar button {
+    flex: 1;
   }
 }

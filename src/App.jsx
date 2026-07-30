@@ -6,7 +6,7 @@ import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import Footer from './components/Footer';
 import { fetchUserRepos, fetchRepoReadme } from './services/github';
-import { generateRepoBullets } from './services/aiGenerator';
+import { generateRepoBullets } from './services/resumeEngine';
 import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
 
 export default function App() {

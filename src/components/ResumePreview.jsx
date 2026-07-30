@@ -170,14 +170,22 @@ export default function ResumePreview({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCustomRegenerateSubmit = (e) => {
+    e.preventDefault();
+    if (customPromptText.trim()) {
+      onRegenerate(customPromptText.trim());
+      setIsCustomPromptOpen(false);
+    }
+  };
+
   return (
     <div className="glass-panel" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0 }}>
       
       {/* Top Toolbar: Tone Switcher & View Modes */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', flexShrink: 0 }}>
+      <div className="preview-top-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', flexShrink: 0 }}>
         
         {/* Tone Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#0f0f12', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-muted)' }}>
+        <div className="tone-selector-bar">
           {TONES.map(t => {
             const isActive = activeTone === t.id;
             return (
@@ -200,7 +208,7 @@ export default function ResumePreview({
         </div>
 
         {/* View Format Selector & Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="preview-actions-bar" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <div style={{ display: 'flex', background: '#0f0f12', borderRadius: 'var(--radius-sm)', padding: '2px', border: '1px solid var(--border-muted)' }}>
             <button
               className={`btn btn-sm ${viewMode === 'formatted' ? 'btn-secondary' : 'btn-ghost'}`}
@@ -261,36 +269,35 @@ export default function ResumePreview({
 
       {/* Dynamic Hover Tooltip Explanation Banner */}
       <div style={{
-        padding: '8px 12px',
+        padding: '6px 12px',
         borderRadius: 'var(--radius-sm)',
-        background: '#18181b',
+        background: '#121215',
         border: '1px solid var(--border-muted)',
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        fontSize: '0.78rem',
+        fontSize: '0.76rem',
         color: 'var(--text-secondary)',
         flexShrink: 0
       }}>
-        <Info size={14} color="var(--text-primary)" style={{ flexShrink: 0 }} />
-        <span>
+        <Info size={13} color="#a1a1aa" style={{ flexShrink: 0 }} />
+        <span style={{ lineHeight: '1.4' }}>
           <strong style={{ color: '#ffffff' }}>{activeToneObj.label}:</strong> {activeToneObj.tooltip}
         </span>
       </div>
 
       {/* Main Content Area */}
       {isGenerating ? (
-        /* Skeletal Loader State */
-        <div style={{ padding: '32px 16px', display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
-          
+        /* Loading Skeleton State */
+        <div style={{ padding: '24px 12px', display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#ffffff', padding: '12px', background: '#18181b', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-muted)' }}>
             <Loader2 size={16} className="spin" />
-            <span style={{ fontSize: '0.88rem', fontWeight: '600' }}>
-              Analyzing codebase & generating ATS bullets...
+            <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
+              Gemini AI is analyzing codebase & generating ATS bullets...
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div className="pulse-skeleton" style={{ width: '180px', height: '20px' }} />
               <div className="pulse-skeleton" style={{ width: '140px', height: '16px' }} />
@@ -299,41 +306,40 @@ export default function ResumePreview({
             <div className="pulse-skeleton" style={{ width: '92%', height: '14px' }} />
             <div className="pulse-skeleton" style={{ width: '85%', height: '14px' }} />
           </div>
-
         </div>
       ) : generatedBullets.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <Layers size={40} style={{ marginBottom: '12px', opacity: 0.4, color: '#ffffff' }} />
-          <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: '#ffffff', marginBottom: '6px', fontFamily: 'var(--font-display)' }}>
-            No Resume Bullets <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.08em' }}>Generated Yet</span>
+          <Sparkles size={36} style={{ marginBottom: '12px', opacity: 0.4, color: '#ffffff' }} />
+          <h3 style={{ fontSize: '1.05rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
+            No Resume Bullets Generated Yet
           </h3>
-          <p style={{ maxWidth: '400px', margin: '0 auto', fontSize: '0.84rem', lineHeight: '1.5' }}>
-            Select repositories from the left panel and click <strong>"Generate Resume Bullets"</strong> to build ATS-optimized project bullets.
+          <p style={{ maxWidth: '380px', margin: '0 auto', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Select repositories from the left panel and click <strong>"Generate Resume Text"</strong> to build ATS-optimized project bullets.
           </p>
         </div>
       ) : (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px' }}>
           
           {/* Formatted Interactive Editor View */}
           {viewMode === 'formatted' && (
             <div className="resume-paper" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ borderBottom: '1px solid var(--border-muted)', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '0.98rem', fontWeight: '700', letterSpacing: '0.02em', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
-                  PROJECTS & <span className="font-serif-italic" style={{ fontSize: '1.08em', fontWeight: '400' }}>Technical Experiences</span>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#ffffff' }}>
+                  PROJECTS & TECHNICAL EXPERIENCES
                 </h3>
-                <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>Click any bullet to edit inline</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Click text to edit inline</span>
               </div>
 
               {generatedBullets.map((repoItem, repoIndex) => {
                 const config = getProjectLinkConfig(repoItem.repoId);
 
                 return (
-                  <div key={repoItem.repoId} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '14px', borderBottom: repoIndex < generatedBullets.length - 1 ? '1px solid var(--border-muted)' : 'none' }}>
+                  <div key={repoItem.repoId} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '16px', borderBottom: repoIndex < generatedBullets.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
                     
                     {/* Repo Title & Tech Stack */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <h4 style={{ fontSize: '0.98rem', fontWeight: '600', color: '#ffffff', fontFamily: 'var(--font-display)' }}>
+                    <div className="repo-item-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h4 style={{ fontSize: '0.98rem', fontWeight: '700', color: '#ffffff' }}>
                           {repoItem.repoName}
                         </h4>
                         
@@ -347,7 +353,7 @@ export default function ResumePreview({
                     </div>
 
                     {/* Per-Project Link Controls Toolbar */}
-                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '2px', fontSize: '0.76rem', background: '#18181b', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-muted)' }}>
+                    <div className="project-links-bar">
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: '600' }}>Links:</span>
                       
                       <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: config.showGithub ? '#ffffff' : 'var(--text-muted)' }}>
@@ -371,7 +377,7 @@ export default function ResumePreview({
                       </label>
 
                       {config.showDemo && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                        <div className="demo-url-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>URL:</span>
                           <input 
                             type="url"
@@ -468,59 +474,43 @@ export default function ResumePreview({
               </div>
 
               {/* Custom Input & Send Action */}
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!customPromptText.trim() || isGenerating) return;
-                  onRegenerate(customPromptText.trim());
-                }} 
-                style={{ display: 'flex', gap: '8px' }}
-              >
+              <form onSubmit={handleCustomRegenerateSubmit} style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="e.g. Focus heavily on Docker, AWS deployment, and latency metrics..."
+                  placeholder="e.g. Focus more on Redis caching, Docker, and AWS deployment..."
                   value={customPromptText}
                   onChange={(e) => setCustomPromptText(e.target.value)}
-                  style={{ flex: 1, height: '36px', fontSize: '0.82rem' }}
+                  style={{ height: '36px', fontSize: '0.82rem', background: '#0a0a0c' }}
                 />
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-sm"
-                  disabled={!customPromptText.trim() || isGenerating}
-                  style={{ height: '36px', padding: '0 14px', gap: '6px', fontSize: '0.8rem' }}
-                >
-                  {isGenerating ? <Loader2 size={13} className="spin" /> : <Send size={13} />}
-                  <span>Regenerate</span>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={isGenerating || !customPromptText.trim()} style={{ height: '36px', padding: '0 14px', gap: '6px', whiteSpace: 'nowrap' }}>
+                  <Send size={13} /> Generate
                 </button>
               </form>
             </div>
           )}
 
-          {/* Action Buttons Bar */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+          {/* Bottom Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
             <button 
-              type="button" 
-              className={`btn ${isCustomPromptOpen ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-              onClick={() => setIsCustomPromptOpen(prev => !prev)}
-              disabled={isGenerating}
-              style={{ fontSize: '0.8rem', gap: '6px' }}
-              title="Regenerate with specific instructions or prompt"
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setIsCustomPromptOpen(!isCustomPromptOpen)}
+              style={{ fontSize: '0.78rem', gap: '6px', borderStyle: 'dashed' }}
             >
               <Wand2 size={13} />
-              <span>Specific Request</span>
+              <span>{isCustomPromptOpen ? 'Close Custom Request' : 'Regenerate with Specific Prompt...'}</span>
             </button>
 
             <button 
               type="button" 
               className="btn btn-secondary btn-sm"
-              onClick={() => onRegenerate('')}
+              onClick={() => onRegenerate()}
               disabled={isGenerating}
-              style={{ fontSize: '0.8rem', gap: '6px' }}
-              title="Regenerate bullet points"
+              style={{ fontSize: '0.78rem', gap: '6px' }}
             >
               <RefreshCw size={13} className={isGenerating ? 'spin' : ''} />
-              <span>Regenerate Bullets</span>
+              <span>Standard Regenerate</span>
             </button>
           </div>
 
@@ -542,16 +532,16 @@ function itemLinkBadge(url, label, icon) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: '4px',
-        fontSize: '0.7rem',
+        fontSize: '0.72rem',
         color: '#f4f4f5',
         background: '#18181b',
-        padding: '2px 7px',
+        padding: '2px 8px',
         borderRadius: '4px',
         border: '1px solid #27272a',
         textDecoration: 'none'
       }}
     >
-      {icon} {label} <ExternalLink size={9} />
+      {icon} {label} <ExternalLink size={10} />
     </a>
   );
 }
