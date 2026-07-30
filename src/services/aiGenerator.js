@@ -38,6 +38,7 @@ Primary Language: ${repo.language}
 Detected Tech Stack: ${repo.detected_deps.join(', ')}
 Topics/Keywords: ${repo.topics.join(', ')}
 Stars: ${repo.stargazers_count}
+${repo.readmeText ? `README Content Summary: ${repo.readmeText.slice(0, 1000)}` : ''}
 ${jdKeywords.length > 0 ? `Target Job Keywords to emphasize: ${jdKeywords.join(', ')}` : ''}
 
 Tone/Style Requirements: ${tone === 'xyz' ? 'Google XYZ Formula (Accomplished X using Y, resulting in quantitative impact Z)' : tone === 'star' ? 'STAR Method (Situation/Task, Action taken, Result achieved)' : 'Concise ATS Bullet Points with strong action verbs'}.

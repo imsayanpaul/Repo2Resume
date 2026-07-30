@@ -5,7 +5,7 @@ import ResumePreview from './components/ResumePreview';
 import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import Footer from './components/Footer';
-import { fetchUserRepos } from './services/github';
+import { fetchUserRepos, fetchRepoReadme } from './services/github';
 import { generateRepoBullets } from './services/aiGenerator';
 import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
 
@@ -51,6 +51,9 @@ export default function App() {
       const results = [];
 
       for (const repo of selectedRepos) {
+        if (!repo.readmeText) {
+          repo.readmeText = await fetchRepoReadme(repo.full_name, githubToken);
+        }
         const bullets = await generateRepoBullets(repo, toneToUse, geminiApiKey, jdKeywords);
         results.push({
           repoId: repo.id,

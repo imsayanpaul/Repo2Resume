@@ -161,6 +161,26 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
 }
 
 /**
+ * Programmatically fetch raw README.md content for a repository
+ */
+export async function fetchRepoReadme(fullName, personalToken = '') {
+  if (!fullName) return '';
+  try {
+    const headers = { 'Accept': 'application/vnd.github.v3.raw' };
+    if (personalToken) headers['Authorization'] = `token ${personalToken}`;
+    
+    const res = await fetch(`https://api.github.com/repos/${fullName}/readme`, { headers });
+    if (res.ok) {
+      const text = await res.text();
+      return text.slice(0, 1500); // Excerpt 1500 chars max for prompt
+    }
+  } catch (err) {
+    console.warn(`Could not fetch README for ${fullName}:`, err);
+  }
+  return '';
+}
+
+/**
  * Quick heuristic tech stack detector from repository metadata & topics
  */
 function extractFallbackDepsFromRepo(repo) {
