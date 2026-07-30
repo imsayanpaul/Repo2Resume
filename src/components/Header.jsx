@@ -58,7 +58,7 @@ export default function Header({
               Repo<span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.1em' }}>2Resume</span>
             </h1>
             <span className="badge" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>
-              v1.2
+              v1.0
             </span>
           </div>
         </div>
