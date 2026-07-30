@@ -1,6 +1,28 @@
-import React, { useState, useMemo } from 'react';
-import { Star, GitFork, CheckSquare, Square, Filter, Code2, AlertCircle, Loader2, Terminal, Briefcase } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Star, GitFork, CheckSquare, Square, Filter, Code2, AlertCircle, Loader2, Terminal, Briefcase, ChevronDown, Check } from 'lucide-react';
 import { matchRepoToJd } from '../services/jdMatcher';
+
+// Official GitHub language colors map
+const LANG_COLORS = {
+  JavaScript: '#f1e05a',
+  TypeScript: '#3178c6',
+  Python: '#3572A5',
+  HTML: '#e34c26',
+  CSS: '#563d7c',
+  Java: '#b07219',
+  'C++': '#f34b7d',
+  C: '#555555',
+  'C#': '#178600',
+  Go: '#00ADD8',
+  Rust: '#dea584',
+  PHP: '#4F5D95',
+  Ruby: '#701516',
+  Swift: '#F05138',
+  Kotlin: '#A97BFF',
+  Shell: '#89e051',
+  Vue: '#41b883',
+  Codebase: '#a855f7'
+};
 
 // Helper to strip raw GitHub shortcode emojis (e.g. :zap:, :sparkles:)
 function cleanDescription(desc) {
@@ -23,6 +45,19 @@ export default function RepoSelector({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLang, setSelectedLang] = useState('ALL');
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Click away listener to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsLangDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Available Languages list
   const availableLangs = useMemo(() => {
@@ -67,7 +102,7 @@ export default function RepoSelector({
         </div>
       )}
 
-      {/* Control Bar: Search & Language Filter */}
+      {/* Control Bar: Search & Custom Language Filter */}
       <div className="repo-control-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
         <input 
           type="text"
@@ -77,16 +112,103 @@ export default function RepoSelector({
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{ flex: 1, minWidth: '140px', height: '36px', padding: '0 12px', fontSize: '0.84rem', lineHeight: '36px', boxSizing: 'border-box' }}
         />
-        <select 
-          className="input-field repo-lang-select"
-          value={selectedLang}
-          onChange={(e) => setSelectedLang(e.target.value)}
-          style={{ width: 'auto', minWidth: '125px', height: '36px', fontSize: '0.84rem', lineHeight: '36px', boxSizing: 'border-box' }}
-        >
-          {availableLangs.map(l => (
-            <option key={l} value={l}>{l === 'ALL' ? 'All Languages' : l}</option>
-          ))}
-        </select>
+        
+        {/* Custom Sleek Dropdown Component */}
+        <div ref={dropdownRef} className="repo-lang-select" style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            type="button"
+            onClick={() => setIsLangDropdownOpen(prev => !prev)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justify: 'space-between',
+              gap: '8px',
+              height: '36px',
+              padding: '0 12px',
+              fontSize: '0.82rem',
+              minWidth: '130px',
+              cursor: 'pointer',
+              background: '#0f0f12',
+              border: isLangDropdownOpen ? '1px solid #52525b' : '1px solid var(--border-muted)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-primary)',
+              transition: 'all 0.15s ease',
+              boxSizing: 'border-box',
+              boxShadow: isLangDropdownOpen ? '0 0 0 2px rgba(255, 255, 255, 0.08)' : 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', overflow: 'hidden' }}>
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  backgroundColor: selectedLang === 'ALL' ? '#e2e8f0' : (LANG_COLORS[selectedLang] || '#a1a1aa'),
+                  flexShrink: 0
+                }}
+              />
+              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', fontWeight: '500' }}>
+                {selectedLang === 'ALL' ? 'All Languages' : selectedLang}
+              </span>
+            </div>
+            <ChevronDown size={14} color="#a1a1aa" style={{ transition: 'transform 0.2s ease', transform: isLangDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink: 0 }} />
+          </button>
+
+          {isLangDropdownOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 5px)',
+                right: 0,
+                zIndex: 100,
+                minWidth: '160px',
+                maxWidth: '220px',
+                background: '#141418',
+                border: '1px solid #3f3f46',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: '0 14px 35px rgba(0, 0, 0, 0.95)',
+                padding: '5px',
+                maxHeight: '220px',
+                overflowY: 'auto'
+              }}
+            >
+              {availableLangs.map(l => {
+                const isSelected = selectedLang === l;
+                const color = l === 'ALL' ? '#e2e8f0' : (LANG_COLORS[l] || '#a1a1aa');
+                return (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => {
+                      setSelectedLang(l);
+                      setIsLangDropdownOpen(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justify: 'space-between',
+                      gap: '8px',
+                      padding: '7px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: isSelected ? '#27272a' : 'transparent',
+                      color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.12s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+                      <span style={{ fontWeight: isSelected ? '600' : '400' }}>{l === 'ALL' ? 'All Languages' : l}</span>
+                    </div>
+                    {isSelected && <Check size={13} color="#ffffff" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Selection Quick Actions */}
