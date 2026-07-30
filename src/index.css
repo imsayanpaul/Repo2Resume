@@ -525,6 +525,15 @@ h1, h2, h3, h4, .font-display {
     min-width: 100% !important;
   }
 
+  .repo-lang-dropdown-menu {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
   .tone-selector-bar {
     width: 100%;
   }

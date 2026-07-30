@@ -126,6 +126,7 @@ export default function RepoSelector({
               height: '36px',
               padding: '0 12px',
               fontSize: '0.82rem',
+              width: '100%',
               minWidth: '130px',
               cursor: 'pointer',
               background: '#0f0f12',
@@ -156,10 +157,11 @@ export default function RepoSelector({
 
           {isLangDropdownOpen && (
             <div
+              className="repo-lang-dropdown-menu"
               style={{
                 position: 'absolute',
                 top: 'calc(100% + 5px)',
-                right: 0,
+                left: 0,
                 zIndex: 100,
                 minWidth: '160px',
                 maxWidth: '220px',
