@@ -604,8 +604,8 @@ h1, h2, h3, h4, .font-display {
   }
 
   .footer-grid {
-    grid-template-columns: 1fr !important;
-    gap: 22px !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 20px 12px !important;
   }
 
   .btn {
