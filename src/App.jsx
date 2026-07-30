@@ -6,7 +6,7 @@ import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import { fetchUserRepos } from './services/github';
 import { generateRepoBullets } from './services/aiGenerator';
-import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
 
 export default function App() {
   // Application State
@@ -285,15 +285,75 @@ export default function App() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: '600', color: '#ffffff' }}>
-                  react-concurrent-renderer
-                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: '600', color: '#ffffff' }}>
+                    react-concurrent-renderer
+                  </h4>
+                  
+                  {/* Sample GitHub Link Badge */}
+                  <a 
+                    href="https://github.com/facebook/react" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.7rem',
+                      color: '#f4f4f5',
+                      background: '#18181b',
+                      padding: '2px 7px',
+                      borderRadius: '4px',
+                      border: '1px solid #27272a',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <Github size={11} /> GitHub <ExternalLink size={9} />
+                  </a>
+
+                  {/* Sample Live Demo Link Badge */}
+                  <a 
+                    href="https://react.dev" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '0.7rem',
+                      color: '#f4f4f5',
+                      background: '#18181b',
+                      padding: '2px 7px',
+                      borderRadius: '4px',
+                      border: '1px solid #27272a',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <Globe size={11} /> Live Demo <ExternalLink size={9} />
+                  </a>
+                </div>
+
                 <span className="font-mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                   TypeScript • WebAssembly • Reconciliation Engine
                 </span>
               </div>
 
-              <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+              {/* Sample Links Control Bar */}
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '2px', fontSize: '0.76rem', background: '#18181b', padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-muted)' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: '600' }}>Links:</span>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default', color: '#ffffff' }}>
+                  <input type="checkbox" checked readOnly style={{ accentColor: '#ffffff' }} />
+                  <Github size={12} /> GitHub Link
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default', color: '#ffffff' }}>
+                  <input type="checkbox" checked readOnly style={{ accentColor: '#ffffff' }} />
+                  <Globe size={12} /> Live Demo
+                </label>
+              </div>
+
+              <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                 <li>
                   <strong style={{ color: '#ffffff' }}>Accomplished 40% reduction in UI paint latency</strong> by architecting a time-slicing concurrent scheduler using requestIdleCallback web APIs.
                 </li>
