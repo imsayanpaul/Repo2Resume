@@ -458,18 +458,18 @@ h1, h2, h3, h4, .font-display {
   }
 
   .hero-box {
-    padding: 28px 16px !important;
+    padding: 24px 16px !important;
     gap: 16px !important;
   }
 
   .hero-title {
-    font-size: 1.8rem !important;
+    font-size: 1.45rem !important;
     line-height: 1.25 !important;
   }
 
   .hero-subtitle {
-    font-size: 0.88rem !important;
-    line-height: 1.5 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.45 !important;
   }
 
   .hero-search-form {
@@ -552,21 +552,7 @@ h1, h2, h3, h4, .font-display {
   }
 
   .footer-col-brand {
-    grid-column: 1 / -1 !important;
-    align-items: center !important;
-    text-align: center !important;
-    padding-bottom: 12px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  }
-
-  .footer-col-brand p {
-    text-align: center !important;
-    max-width: 340px !important;
-    margin: 0 auto !important;
-  }
-
-  .footer-col-brand > div {
-    justify-content: center !important;
+    display: none !important;
   }
 
   .footer-col {
