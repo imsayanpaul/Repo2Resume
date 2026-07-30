@@ -1,104 +1,141 @@
-import React, { useState } from 'react';
-import { Github, Sparkles, Settings, FileText, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, FileText, Code2, Star } from 'lucide-react';
 
 export default function Header({ 
-  onSearch, 
+  onGoHome,
   onOpenSettings, 
   onOpenJdModal, 
   activeUsername, 
   hasJdKeywords, 
   hasApiKey 
 }) {
-  const [inputVal, setInputVal] = useState('');
+  const [starCount, setStarCount] = useState(null);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (inputVal.trim()) {
-      onSearch(inputVal.trim());
-    }
-  };
+  useEffect(() => {
+    fetch('https://api.github.com/repos/imsayanpaul/Repo2Resume')
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data.stargazers_count === 'number') {
+          setStarCount(data.stargazers_count);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
-    <header className="glass-panel app-header" style={{ padding: '16px 24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+    <header className="glass-panel app-header" style={{ padding: '12px 24px', borderBottom: '1px solid var(--border-muted)', background: '#121215' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
         
-        {/* Brand Logo & Tagline */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Brand Logo & Name (Clickable Homepage Link) */}
+        <div 
+          onClick={onGoHome} 
+          title="Return to Homepage"
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'opacity 0.2s ease'
+          }}
+          className="brand-logo-btn"
+        >
           <div style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            background: 'var(--gradient-brand)',
+            width: '34px',
+            height: '34px',
+            borderRadius: '8px',
+            background: '#18181b',
+            border: '1px solid #27272a',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: 'var(--shadow-glow)'
+            color: '#ffffff'
           }}>
-            <Sparkles size={24} color="#ffffff" />
+            <Code2 size={18} />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontSize: '1.4rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                Repo<span className="gradient-text">2Resume</span>
-              </h1>
-              <span className="badge badge-primary">v1.0 AI</span>
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Transform GitHub repos into ATS-optimized Google XYZ resume bullets
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: '700', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
+              Repo<span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.1em' }}>2Resume</span>
+            </h1>
+            <span className="badge" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>
+              v1.2
+            </span>
           </div>
         </div>
 
-        {/* GitHub Username Search Input */}
-        <form onSubmit={handleSubmit} style={{ flex: '1', maxWidth: '420px', minWidth: '280px', display: 'flex', gap: '8px' }}>
-          <div style={{ position: 'relative', width: '100%' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Enter GitHub username (e.g. torvalds)..."
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              style={{ paddingLeft: '38px' }}
-            />
-          </div>
-          <button type="submit" className="btn btn-primary">
-            Search
-          </button>
-        </form>
-
-        {/* Action Controls & Quick Buttons */}
+        {/* Right Navigation Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          
           <button 
             type="button" 
-            className={`btn btn-secondary btn-sm ${hasJdKeywords ? 'badge-cyan' : ''}`}
+            className={`btn btn-secondary btn-sm ${hasJdKeywords ? 'badge-primary' : ''}`}
             onClick={onOpenJdModal}
-            title="Paste Job Description to score & match repos"
+            title="Match Job Description keywords"
+            style={{ gap: '6px', height: '34px', fontSize: '0.82rem' }}
           >
-            <FileText size={16} />
-            <span>{hasJdKeywords ? 'JD Filter Active' : 'Match Job Description'}</span>
+            <FileText size={14} color="var(--text-secondary)" />
+            <span>{hasJdKeywords ? 'JD Matcher Active' : 'Match Job Description'}</span>
           </button>
 
           <button 
             type="button" 
-            className="btn btn-ghost btn-sm"
+            className="btn btn-secondary btn-sm"
             onClick={onOpenSettings}
-            title="Configure Gemini API key & GitHub access token"
-            style={{ position: 'relative' }}
+            title="Settings & API Keys"
+            style={{ position: 'relative', height: '34px', width: '34px', padding: '0' }}
           >
-            <Settings size={18} />
+            <Settings size={15} color="var(--text-secondary)" />
             {hasApiKey && (
               <span style={{
                 position: 'absolute',
-                top: '4px',
-                right: '4px',
-                width: '8px',
-                height: '8px',
+                top: '6px',
+                right: '6px',
+                width: '6px',
+                height: '6px',
                 borderRadius: '50%',
-                background: 'var(--accent-cyan)'
+                background: '#ffffff'
               }} />
             )}
           </button>
+
+          {/* GitHub Style Star Button with Counter (Placed at the End) */}
+          <a
+            href="https://github.com/imsayanpaul/Repo2Resume"
+            target="_blank"
+            rel="noreferrer"
+            title="Star Repo2Resume on GitHub"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              padding: '4px 10px',
+              height: '34px',
+              borderRadius: 'var(--radius-md)',
+              background: '#18181b',
+              border: '1px solid #27272a',
+              color: '#ffffff',
+              textDecoration: 'none',
+              fontSize: '0.82rem',
+              fontWeight: '600',
+              transition: 'all 0.15s ease'
+            }}
+            className="btn-secondary"
+          >
+            <Star size={14} color="#f4f4f5" />
+            <span>Star</span>
+            <span style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              padding: '2px 7px',
+              borderRadius: '4px',
+              fontSize: '0.74rem',
+              fontWeight: '600',
+              color: '#e4e4e7',
+              fontFamily: 'var(--font-mono)'
+            }}>
+              {starCount !== null ? starCount : '★'}
+            </span>
+          </a>
+
         </div>
 
       </div>

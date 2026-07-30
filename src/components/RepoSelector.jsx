@@ -1,6 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Star, GitFork, CheckSquare, Square, Filter, Code2, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { Star, GitFork, CheckSquare, Square, Filter, Code2, AlertCircle, Loader2, Terminal } from 'lucide-react';
 import { matchRepoToJd } from '../services/jdMatcher';
+
+// Helper to strip raw GitHub shortcode emojis (e.g. :zap:, :sparkles:)
+function cleanDescription(desc) {
+  if (!desc) return '';
+  return desc.replace(/:[a-z0-9_+-]+:/gi, '').trim();
+}
 
 export default function RepoSelector({ 
   user, 
@@ -30,8 +36,9 @@ export default function RepoSelector({
         return { ...r, ...jdMatch };
       })
       .filter(r => {
+        const cleanDesc = cleanDescription(r.description);
         const matchesText = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            r.description.toLowerCase().includes(searchTerm.toLowerCase());
+                            cleanDesc.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesLang = selectedLang === 'ALL' || r.language === selectedLang;
         return matchesText && matchesLang;
       })
@@ -39,38 +46,40 @@ export default function RepoSelector({
   }, [repos, searchTerm, selectedLang, jdKeywords]);
 
   return (
-    <div className="glass-panel repo-sidebar" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="glass-panel repo-sidebar" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0 }}>
       
       {/* User Info Header */}
       {user && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px', flexShrink: 0 }}>
           <img 
             src={user.avatar_url} 
             alt={user.name} 
-            style={{ width: '48px', height: '48px', borderRadius: '50%', border: '2px solid var(--border-accent)' }} 
+            style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid var(--border-accent)' }} 
           />
           <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: '700' }}>{user.name}</h2>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>@{user.username} • {user.public_repos || repos.length} Repositories</p>
+            <h2 style={{ fontSize: '0.98rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>{user.name}</h2>
+            <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }} className="font-mono">
+              @{user.username} • {user.public_repos || repos.length} Repositories
+            </p>
           </div>
         </div>
       )}
 
       {/* Control Bar: Search & Language Filter */}
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
         <input 
           type="text"
           className="input-field"
           placeholder="Filter repositories..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ flex: 1, minWidth: '150px' }}
+          style={{ flex: 1, minWidth: '140px', height: '36px', fontSize: '0.84rem' }}
         />
         <select 
           className="input-field"
           value={selectedLang}
           onChange={(e) => setSelectedLang(e.target.value)}
-          style={{ width: 'auto', minWidth: '110px' }}
+          style={{ width: 'auto', minWidth: '110px', height: '36px', fontSize: '0.84rem' }}
         >
           {availableLangs.map(l => (
             <option key={l} value={l}>{l === 'ALL' ? 'All Languages' : l}</option>
@@ -79,83 +88,93 @@ export default function RepoSelector({
       </div>
 
       {/* Selection Quick Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', flexShrink: 0 }}>
         <span style={{ color: 'var(--text-secondary)' }}>
-          Selected: <strong style={{ color: 'var(--accent-cyan)' }}>{selectedRepoIds.length}</strong> / {repos.length} repos
+          Selected: <strong style={{ color: '#ffffff', fontFamily: 'var(--font-mono)' }}>{selectedRepoIds.length}</strong> / {repos.length} repos
         </span>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button type="button" onClick={onSelectAll} className="btn-ghost" style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>Select All</button>
-          <button type="button" onClick={onDeselectAll} className="btn-ghost" style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>Deselect</button>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <button type="button" onClick={onSelectAll} className="btn btn-ghost btn-sm" style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', padding: '2px 8px' }}>
+            Select All
+          </button>
+          <span style={{ color: 'var(--border-muted)', fontSize: '0.75rem' }}>|</span>
+          <button type="button" onClick={onDeselectAll} className="btn btn-ghost btn-sm" style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', padding: '2px 8px' }}>
+            Deselect
+          </button>
         </div>
       </div>
 
-      {/* Repositories List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '560px', overflowY: 'auto', paddingRight: '4px' }}>
+      {/* Repositories Scrollable List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
         {processedRepos.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
-            <AlertCircle size={32} style={{ marginBottom: '8px', opacity: 0.6 }} />
-            <p>No repositories match your filter criteria.</p>
+            <AlertCircle size={26} style={{ marginBottom: '8px', opacity: 0.6 }} />
+            <p style={{ fontSize: '0.84rem' }}>No repositories match your filter criteria.</p>
           </div>
         ) : (
           processedRepos.map(repo => {
             const isSelected = selectedRepoIds.includes(repo.id);
+            const cleanedDesc = cleanDescription(repo.description);
 
             return (
               <div 
                 key={repo.id}
                 onClick={() => onToggleSelect(repo.id)}
                 style={{
-                  padding: '14px',
+                  padding: '11px 13px',
                   borderRadius: 'var(--radius-md)',
-                  background: isSelected ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                  border: isSelected ? '1px solid var(--border-accent)' : '1px solid var(--border-subtle)',
+                  background: isSelected ? '#1c1c22' : '#141418',
+                  border: isSelected ? '1px solid var(--border-accent)' : '1px solid var(--border-muted)',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.15s ease',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '8px'
+                  gap: '6px'
                 }}
               >
                 {/* Top Title Bar */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {isSelected ? <CheckSquare size={18} color="#8b5cf6" /> : <Square size={18} color="#6b7280" />}
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: isSelected ? '#a5b4fc' : 'var(--text-primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isSelected ? <CheckSquare size={16} color="#ffffff" /> : <Square size={16} color="#71717a" />}
+                    <h3 style={{ fontSize: '0.88rem', fontWeight: '600', color: isSelected ? '#ffffff' : 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
                       {repo.name}
                     </h3>
                   </div>
 
-                  {/* JD Match Badge if available */}
+                  {/* JD Match Badge */}
                   {jdKeywords && jdKeywords.length > 0 && repo.scorePercent > 0 && (
-                    <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
-                      {repo.scorePercent}% JD Match
+                    <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                      {repo.scorePercent}% Match
                     </span>
                   )}
                 </div>
 
-                {/* Description */}
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {repo.description}
-                </p>
+                {/* Cleaned Description */}
+                {cleanedDesc && (
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineClamp: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                    {cleanedDesc}
+                  </p>
+                )}
 
                 {/* Tech Stack & Stats Badges */}
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-                  <span className="badge badge-primary">
-                    <Code2 size={12} /> {repo.language}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', marginTop: '2px' }}>
+                  {repo.language && (
+                    <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
+                      <Code2 size={11} /> {repo.language}
+                    </span>
+                  )}
 
                   {repo.detected_deps?.slice(0, 3).map(dep => (
-                    <span key={dep} className="badge" style={{ fontSize: '0.7rem' }}>
+                    <span key={dep} className="badge" style={{ fontSize: '0.68rem' }}>
                       {dep}
                     </span>
                   ))}
 
-                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <div className="font-mono" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <Star size={12} color="#f59e0b" /> {repo.stargazers_count}
+                      <Star size={11} color="#e2e8f0" /> {repo.stargazers_count}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <GitFork size={12} /> {repo.forks_count}
+                      <GitFork size={11} /> {repo.forks_count}
                     </span>
                   </div>
                 </div>
@@ -166,31 +185,33 @@ export default function RepoSelector({
         )}
       </div>
 
-      {/* Generate Action Button */}
-      <button 
-        type="button" 
-        className="btn btn-primary"
-        disabled={selectedRepoIds.length === 0 || isGenerating}
-        onClick={onGenerate}
-        style={{
-          marginTop: '8px',
-          width: '100%',
-          opacity: (selectedRepoIds.length === 0 || isGenerating) ? 0.6 : 1,
-          cursor: (selectedRepoIds.length === 0 || isGenerating) ? 'not-allowed' : 'pointer'
-        }}
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 size={18} className="spin" />
-            <span>Generating AI Bullets...</span>
-          </>
-        ) : (
-          <>
-            <Sparkles size={18} />
-            <span>Generate Resume Text ({selectedRepoIds.length})</span>
-          </>
-        )}
-      </button>
+      {/* Pinned Generate Action Button */}
+      <div style={{ flexShrink: 0, paddingTop: '6px' }}>
+        <button 
+          type="button" 
+          className="btn btn-primary"
+          disabled={selectedRepoIds.length === 0 || isGenerating}
+          onClick={onGenerate}
+          style={{
+            width: '100%',
+            opacity: (selectedRepoIds.length === 0 || isGenerating) ? 0.6 : 1,
+            cursor: (selectedRepoIds.length === 0 || isGenerating) ? 'not-allowed' : 'pointer',
+            height: '42px'
+          }}
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 size={16} className="spin" />
+              <span>Generating AI Bullets...</span>
+            </>
+          ) : (
+            <>
+              <Terminal size={16} />
+              <span>Generate Resume Bullets ({selectedRepoIds.length})</span>
+            </>
+          )}
+        </button>
+      </div>
 
     </div>
   );

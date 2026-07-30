@@ -6,10 +6,10 @@ import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import { fetchUserRepos } from './services/github';
 import { generateRepoBullets } from './services/aiGenerator';
-import { AlertTriangle, Sparkles, Search, Github } from 'lucide-react';
+import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck } from 'lucide-react';
 
 export default function App() {
-  // Application State - Starts empty until user searches
+  // Application State
   const [userData, setUserData] = useState(null);
   const [repos, setRepos] = useState([]);
   const [selectedRepoIds, setSelectedRepoIds] = useState([]);
@@ -21,7 +21,7 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [searchInput, setSearchInput] = useState('');
 
-  // Settings & JD Modals
+  // Modals
   const [isJdOpen, setIsJdOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [jdText, setJdText] = useState('');
@@ -36,7 +36,6 @@ export default function App() {
     if (selectedRepoIds.length === 0) return;
     const toneToUse = toneOverride || activeTone;
 
-    // Check Cache first if not forcing regeneration
     if (!forceRegenerate && bulletsCache[toneToUse]) {
       setGeneratedBullets(bulletsCache[toneToUse]);
       return;
@@ -62,7 +61,6 @@ export default function App() {
       }
 
       setGeneratedBullets(results);
-      // Save into cache for instant switching back
       setBulletsCache(prev => ({
         ...prev,
         [toneToUse]: results
@@ -85,8 +83,7 @@ export default function App() {
       setUserData(data.user);
       setRepos(data.repos);
       setGeneratedBullets([]);
-      setBulletsCache({}); // Reset cache for new user
-      // Select top 3 repos by default
+      setBulletsCache({});
       const topIds = data.repos.slice(0, 3).map(r => r.id);
       setSelectedRepoIds(topIds);
     } catch (err) {
@@ -97,12 +94,12 @@ export default function App() {
     }
   };
 
-  // Repo Selection Handlers (Resets cache when repo selection changes)
+  // Repo Selection Handlers
   const handleToggleSelectRepo = (id) => {
     setSelectedRepoIds(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
-    setBulletsCache({}); // Invalidate cache for new repo combination
+    setBulletsCache({});
   };
 
   const handleSelectAll = () => {
@@ -115,13 +112,12 @@ export default function App() {
     setBulletsCache({});
   };
 
-  // Inline Bullet Edit Handler (Updates both state and cache)
+  // Inline Bullet Edit Handler
   const handleBulletEdit = (repoIndex, bulletIndex, newText) => {
     setGeneratedBullets(prev => {
       const next = [...prev];
       next[repoIndex].bullets[bulletIndex] = newText;
       
-      // Keep cache in sync with user edits
       setBulletsCache(cache => ({
         ...cache,
         [activeTone]: next
@@ -131,25 +127,21 @@ export default function App() {
     });
   };
 
-  // Tone Change Handler (Instant switch if cached)
+  // Tone Change Handler
   const handleToneChange = (newTone) => {
     setActiveTone(newTone);
 
     if (bulletsCache[newTone]) {
-      // Instant switch from cache with 0 delay & 0 loading
       setGeneratedBullets(bulletsCache[newTone]);
     } else {
-      // Generate only if not in cache
       handleGenerateBullets(newTone, false);
     }
   };
 
-  // Explicit Regenerate Trigger (Bypasses cache)
   const handleForceRegenerate = () => {
     handleGenerateBullets(activeTone, true);
   };
 
-  // Save Settings
   const handleSaveGeminiKey = (key) => {
     setGeminiApiKey(key);
     localStorage.setItem('gitresume_gemini_key', key);
@@ -160,19 +152,29 @@ export default function App() {
     localStorage.setItem('gitresume_gh_token', token);
   };
 
-  // Apply Job Description (Resets cache so bullets align with new JD)
   const handleApplyJd = (text, keywords) => {
     setJdText(text);
     setJdKeywords(keywords);
     setBulletsCache({});
   };
 
+  // Return to Homepage / Clear Active Workspace
+  const handleGoHome = () => {
+    setUserData(null);
+    setRepos([]);
+    setSelectedRepoIds([]);
+    setGeneratedBullets([]);
+    setBulletsCache({});
+    setSearchInput('');
+    setErrorMsg(null);
+  };
+
   return (
-    <div className="app-container">
+    <div className={`app-container ${userData ? 'workspace-active' : ''}`}>
       
-      {/* App Header */}
+      {/* Executive Clean Header */}
       <Header 
-        onSearch={handleSearchUser}
+        onGoHome={handleGoHome}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenJdModal={() => setIsJdOpen(true)}
         activeUsername={userData?.username}
@@ -180,22 +182,22 @@ export default function App() {
         hasApiKey={Boolean(geminiApiKey)}
       />
 
-      {/* Error Alert */}
+      {/* Error Alert Banner */}
       {errorMsg && (
         <div style={{
-          padding: '14px 20px',
+          padding: '12px 18px',
           borderRadius: 'var(--radius-md)',
-          background: 'rgba(239, 68, 68, 0.12)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
           color: '#fca5a5',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
-          fontSize: '0.9rem'
+          fontSize: '0.86rem'
         }}>
-          <AlertTriangle size={20} color="#ef4444" />
+          <AlertTriangle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
           <span style={{ flex: 1 }}>{errorMsg}</span>
-          <button type="button" className="btn-ghost" onClick={() => setErrorMsg(null)} style={{ cursor: 'pointer', color: '#fca5a5' }}>
+          <button type="button" className="btn-ghost" onClick={() => setErrorMsg(null)} style={{ cursor: 'pointer', color: '#fca5a5', fontSize: '0.8rem' }}>
             Dismiss
           </button>
         </div>
@@ -203,63 +205,137 @@ export default function App() {
 
       {/* Main Content Area */}
       {!userData ? (
-        /* Welcome Hero Screen */
-        <div className="glass-panel" style={{ padding: '60px 24px', textAlign: 'center', maxWidth: '750px', margin: '40px auto 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+        /* Premium Executive Hero Experience */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '960px', margin: '24px auto 0 auto', width: '100%' }}>
           
-          <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '20px',
-            background: 'var(--gradient-brand)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: 'var(--shadow-glow)'
-          }}>
-            <Sparkles size={36} color="#ffffff" />
-          </div>
-
-          <div>
-            <h2 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '8px' }}>
-              Turn GitHub Repos into <span className="gradient-text">ATS Resume Bullets</span>
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '560px', margin: '0 auto' }}>
-              Enter any public GitHub username to automatically inspect project codebases, dependencies, and architecture, then generate Google XYZ formula bullet points.
-            </p>
-          </div>
-
-          {/* Direct Search Form */}
-          <form onSubmit={(e) => { e.preventDefault(); handleSearchUser(searchInput); }} style={{ width: '100%', maxWidth: '480px', display: 'flex', gap: '10px' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Github size={20} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                className="input-field"
-                placeholder="Enter GitHub username or profile URL..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                style={{ paddingLeft: '44px', height: '48px', fontSize: '1rem' }}
-              />
+          {/* Main Hero Box */}
+          <div className="glass-panel animate-fade-in-up" style={{ padding: '52px 40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+            
+            <div>
+              <h2 style={{ fontSize: '2.75rem', fontWeight: '700', lineHeight: '1.25', marginBottom: '14px', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
+                Turn GitHub Repositories into <br />
+                <span className="font-serif-italic" style={{ color: '#ffffff', fontSize: '1.22em', paddingRight: '4px' }}>ATS-Winning</span> Resume Bullets.
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '620px', margin: '0 auto', lineHeight: '1.6' }}>
+                Inspect public GitHub repositories, extract technical architecture and dependencies, and generate quantified Google XYZ formula achievements.
+              </p>
             </div>
-            <button type="submit" className="btn btn-primary" style={{ height: '48px', padding: '0 24px' }} disabled={loading}>
-              {loading ? 'Searching...' : 'Search'}
-            </button>
-          </form>
 
-          {/* Quick Examples */}
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            <span>Or try popular profiles:</span>
-            {['gaearon', 'yyx99', 'sindresorhus', 'torvalds'].map(name => (
-              <button
-                key={name}
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleSearchUser(name)}
-                style={{ fontSize: '0.8rem' }}
-              >
-                @{name}
+            {/* Direct Search Form */}
+            <form onSubmit={(e) => { e.preventDefault(); handleSearchUser(searchInput); }} style={{ width: '100%', maxWidth: '500px', display: 'flex', gap: '10px' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Github size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Enter GitHub username (e.g. torvalds)..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  style={{ paddingLeft: '44px', height: '48px', fontSize: '0.94rem' }}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ height: '48px', padding: '0 24px', fontSize: '0.9rem' }} disabled={loading}>
+                {loading ? 'Analyzing...' : 'Generate Bullets'}
               </button>
-            ))}
+            </form>
+
+            {/* Quick Profile Suggestions */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              <span>Sample profiles:</span>
+              {['gaearon', 'yyx99', 'sindresorhus', 'torvalds'].map(name => (
+                <button
+                  key={name}
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleSearchUser(name)}
+                  style={{ fontSize: '0.78rem', padding: '3px 10px', height: '28px' }}
+                >
+                  @{name}
+                </button>
+              ))}
+            </div>
+
+          </div>
+
+          {/* Clean Executive Sample Output Card */}
+          <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-1" style={{ padding: '24px', border: '1px solid var(--border-muted)' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Code2 size={16} color="var(--accent-silver)" />
+                <span style={{ fontSize: '0.88rem', fontWeight: '600', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
+                  Sample Project Output — facebook/react
+                </span>
+              </div>
+              <span className="badge" style={{ fontSize: '0.72rem' }}>
+                Google XYZ Formula
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: '600', color: '#ffffff' }}>
+                  react-concurrent-renderer
+                </h4>
+                <span className="font-mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  TypeScript • WebAssembly • Reconciliation Engine
+                </span>
+              </div>
+
+              <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem', color: 'var(--text-secondary)' }}>
+                <li>
+                  <strong style={{ color: '#ffffff' }}>Accomplished 40% reduction in UI paint latency</strong> by architecting a time-slicing concurrent scheduler using requestIdleCallback web APIs.
+                </li>
+                <li>
+                  <strong style={{ color: '#ffffff' }}>Engineered non-blocking reconciliation pipeline</strong> supporting priority-based updates across 10,000+ simultaneous DOM node mutations.
+                </li>
+                <li>
+                  <strong style={{ color: '#ffffff' }}>Optimized memory allocation profile by 32%</strong> through custom Fiber tree pooling and generational garbage collection hooks.
+                </li>
+              </ul>
+            </div>
+
+          </div>
+
+          {/* Feature Highlights Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            
+            <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-2" style={{ padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#18181b', border: '1px solid #27272a', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                <Zap size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '3px', color: '#ffffff' }}>Google XYZ Formula</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+                  Quantifies achievements: "Accomplished [X] as measured by [Y], by doing [Z]" for technical resume scanners.
+                </p>
+              </div>
+            </div>
+
+            <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-2" style={{ padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#18181b', border: '1px solid #27272a', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '3px', color: '#ffffff' }}>ATS Scanner Ready</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+                  Generates clean Markdown, LaTeX, and JSON formats ready to paste directly into standard resume builders.
+                </p>
+              </div>
+            </div>
+
+            <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-3" style={{ padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#18181b', border: '1px solid #27272a', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                <CheckCircle2 size={18} />
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '3px', color: '#ffffff' }}>JD Keyword Matcher</h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+                  Matches target job description skills against repo dependencies to highlight relevant tech experience.
+                </p>
+              </div>
+            </div>
+
           </div>
 
         </div>

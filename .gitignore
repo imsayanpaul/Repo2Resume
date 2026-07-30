@@ -18,3 +18,7 @@ build/
 # System files
 .DS_Store
 Thumbs.db
+
+# Skills & Agent config
+skills-lock.json
+.agents/
