@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, FileText, Loader2, Info, ExternalLink, Github, Globe, Terminal } from 'lucide-react';
+import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const TONES = [
@@ -206,7 +206,7 @@ export default function ResumePreview({
               title="Formatted Card View"
               style={{ padding: '3px 8px', fontSize: '0.76rem' }}
             >
-              <FileText size={13} /> Preview
+              <Eye size={13} /> Preview
             </button>
             <button
               className={`btn btn-sm ${viewMode === 'markdown' ? 'btn-secondary' : 'btn-ghost'}`}
