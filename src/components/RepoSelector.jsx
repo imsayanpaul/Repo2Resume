@@ -68,7 +68,7 @@ export default function RepoSelector({
       )}
 
       {/* Control Bar: Search & Language Filter */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
+      <div className="repo-control-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
         <input 
           type="text"
           className="input-field"
@@ -78,7 +78,7 @@ export default function RepoSelector({
           style={{ flex: 1, minWidth: '140px', height: '36px', fontSize: '0.84rem' }}
         />
         <select 
-          className="input-field"
+          className="input-field repo-lang-select"
           value={selectedLang}
           onChange={(e) => setSelectedLang(e.target.value)}
           style={{ width: 'auto', minWidth: '110px', height: '36px', fontSize: '0.84rem' }}

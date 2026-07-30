@@ -492,6 +492,17 @@ h1, h2, h3, h4, .font-display {
     padding: 14px !important;
   }
 
+  .repo-control-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .repo-lang-select {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
   .tone-selector-bar {
     width: 100%;
   }
