@@ -234,9 +234,24 @@ export default function ResumePreview({
             </button>
           </div>
 
-          <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopy} disabled={generatedBullets.length === 0 || isGenerating} title="Copy text to Clipboard" style={{ height: '30px', fontSize: '0.78rem' }}>
-            {copied ? <Check size={13} color="#ffffff" /> : <Copy size={13} />}
-            <span>{copied ? 'Copied!' : 'Copy'}</span>
+          <button 
+            type="button" 
+            className={`btn ${copied ? 'btn-secondary' : 'btn-primary'} btn-sm`} 
+            onClick={handleCopy} 
+            disabled={generatedBullets.length === 0 || isGenerating} 
+            title="Copy formatted resume text to Clipboard" 
+            style={{ 
+              height: '32px', 
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              padding: '0 14px',
+              gap: '6px',
+              borderRadius: 'var(--radius-sm)',
+              boxShadow: generatedBullets.length > 0 ? '0 0 14px rgba(255, 255, 255, 0.25)' : 'none'
+            }}
+          >
+            {copied ? <Check size={14} color="#ffffff" /> : <Copy size={14} />}
+            <span>{copied ? 'Copied to Clipboard!' : 'Copy Resume'}</span>
           </button>
         </div>
 

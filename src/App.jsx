@@ -94,30 +94,8 @@ export default function App() {
       setRepos(data.repos);
       setGeneratedBullets([]);
       setBulletsCache({});
-      const topRepos = data.repos.slice(0, 3);
-      const topIds = topRepos.map(r => r.id);
+      const topIds = data.repos.slice(0, 3).map(r => r.id);
       setSelectedRepoIds(topIds);
-
-      // Auto-generate initial bullets for top 3 repositories
-      if (topRepos.length > 0) {
-        const initialResults = [];
-        for (const repo of topRepos) {
-          if (!repo.readmeText) {
-            repo.readmeText = await fetchRepoReadme(repo.full_name, githubToken);
-          }
-          const bullets = await generateRepoBullets(repo, activeTone, geminiApiKey, jdKeywords);
-          initialResults.push({
-            repoId: repo.id,
-            repoName: repo.name,
-            description: repo.description,
-            techStack: repo.detected_deps?.length > 0 ? repo.detected_deps : [repo.language],
-            bullets,
-            html_url: repo.html_url
-          });
-        }
-        setGeneratedBullets(initialResults);
-        setBulletsCache({ [activeTone]: initialResults });
-      }
     } catch (err) {
       console.error(err);
       const msg = err.message || '';
