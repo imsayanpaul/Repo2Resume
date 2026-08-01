@@ -41,8 +41,8 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
       cleanUrl = `https://${cleanUrl}`;
     }
 
-    // Primary Screenshot API: WordPress mshots (High reliability, zero API keys required)
-    const primaryScreenshot = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(cleanUrl)}?w=1200&h=675`;
+    // Primary Screenshot API: Microlink API (Instant, live Chromium render)
+    const primaryScreenshot = `https://api.microlink.io/?url=${encodeURIComponent(cleanUrl)}&screenshot=true&embed=screenshot.url`;
     setScreenshotUrl(primaryScreenshot);
 
     setTimeout(() => {
@@ -96,8 +96,8 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
   const handleImgError = () => {
     const rawInput = urlInput.trim() || 'https://repo2resume.vercel.app';
     let cleanUrl = rawInput.startsWith('http') ? rawInput : `https://${rawInput}`;
-    // Fallback Provider: Microlink API
-    const fallbackScreenshot = `https://api.microlink.io/?url=${encodeURIComponent(cleanUrl)}&screenshot=true&embed=screenshot.url`;
+    // Secondary Fallback: WordPress mshots
+    const fallbackScreenshot = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(cleanUrl)}?w=1200&h=675`;
     if (screenshotUrl !== fallbackScreenshot) {
       setScreenshotUrl(fallbackScreenshot);
     } else {
@@ -117,10 +117,48 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
     }
   };
 
-  const handleShareToLinkedIn = () => {
-    handleCopy();
-    const encodedText = encodeURIComponent(generatedPost || 'Check out this project!');
-    window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodedText}`, '_blank');
+  const handleDownloadScreenshot = async () => {
+    if (!screenshotUrl) return;
+    try {
+      const response = await fetch(screenshotUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = 'website-screenshot.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(screenshotUrl, '_blank');
+    }
+  };
+
+  const handleShareToLinkedIn = async () => {
+    // 1. Auto-copy generated post text
+    await handleCopy();
+
+    const rawInput = urlInput.trim() || 'https://repo2resume.vercel.app';
+    let cleanUrl = rawInput.startsWith('http') ? rawInput : `https://${rawInput}`;
+
+    // 2. Try Native Web Share API if supported
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Project Showcase',
+          text: generatedPost,
+          url: cleanUrl
+        });
+        return;
+      } catch {
+        // Fallback to official LinkedIn share window
+      }
+    }
+
+    // 3. Official LinkedIn Share Window + Auto-Copy Notification
+    const linkedinShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(cleanUrl)}`;
+    window.open(linkedinShareUrl, '_blank');
   };
 
   return (
@@ -214,9 +252,19 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Camera size={12} color="#38bdf8" /> Automated Live Screenshot Captured
                   </span>
-                  <a href={screenshotUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm font-mono" style={{ fontSize: '0.7rem', color: '#38bdf8', padding: '1px 6px', height: '22px' }}>
-                    Open Full Image ↗
-                  </a>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm font-mono"
+                      onClick={handleDownloadScreenshot}
+                      style={{ fontSize: '0.7rem', padding: '1px 8px', height: '22px', gap: '4px' }}
+                    >
+                      <Download size={11} /> Download Image
+                    </button>
+                    <a href={screenshotUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm font-mono" style={{ fontSize: '0.7rem', color: '#38bdf8', padding: '1px 6px', height: '22px' }}>
+                      Open Full Image ↗
+                    </a>
+                  </div>
                 </div>
                 
                 <div style={{ position: 'relative', width: '100%', minHeight: '180px', maxHeight: '260px', overflow: 'hidden', background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
