@@ -41,9 +41,9 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
       cleanUrl = `https://${cleanUrl}`;
     }
 
-    // Live Headless Chromium Screenshot API
-    const liveScreenshot = `https://image.thum.io/get/width/1000/crop/600/noanimate/${encodeURIComponent(cleanUrl)}`;
-    setScreenshotUrl(liveScreenshot);
+    // Primary Screenshot API: WordPress mshots (High reliability, zero API keys required)
+    const primaryScreenshot = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(cleanUrl)}?w=1200&h=675`;
+    setScreenshotUrl(primaryScreenshot);
 
     setTimeout(() => {
       let targetName = 'Project Showcase';
@@ -91,6 +91,18 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
       setGeneratedPost(postContent);
       setIsGenerating(false);
     }, 700);
+  };
+
+  const handleImgError = () => {
+    const rawInput = urlInput.trim() || 'https://repo2resume.vercel.app';
+    let cleanUrl = rawInput.startsWith('http') ? rawInput : `https://${rawInput}`;
+    // Fallback Provider: Microlink API
+    const fallbackScreenshot = `https://api.microlink.io/?url=${encodeURIComponent(cleanUrl)}&screenshot=true&embed=screenshot.url`;
+    if (screenshotUrl !== fallbackScreenshot) {
+      setScreenshotUrl(fallbackScreenshot);
+    } else {
+      setIsImgLoading(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -215,8 +227,9 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
                   )}
                   <img
                     src={screenshotUrl}
-                    alt="Captured Website Screenshot"
+                    alt=""
                     onLoad={() => setIsImgLoading(false)}
+                    onError={handleImgError}
                     style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
                   />
                 </div>
