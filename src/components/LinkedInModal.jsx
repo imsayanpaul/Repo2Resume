@@ -136,27 +136,13 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
   };
 
   const handleShareToLinkedIn = async () => {
-    // 1. Auto-copy generated post text
+    // 1. Auto-copy post text to clipboard & fire celebratory confetti
     await handleCopy();
 
     const rawInput = urlInput.trim() || 'https://repo2resume.vercel.app';
     let cleanUrl = rawInput.startsWith('http') ? rawInput : `https://${rawInput}`;
 
-    // 2. Try Native Web Share API if supported
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Project Showcase',
-          text: generatedPost,
-          url: cleanUrl
-        });
-        return;
-      } catch {
-        // Fallback to official LinkedIn share window
-      }
-    }
-
-    // 3. Official LinkedIn Share Window + Auto-Copy Notification
+    // 2. Open LinkedIn Share Window directly in a new browser tab
     const linkedinShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(cleanUrl)}`;
     window.open(linkedinShareUrl, '_blank');
   };
