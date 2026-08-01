@@ -271,7 +271,7 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
             )}
 
             {/* Post Action Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
               <span style={{ fontSize: '0.78rem', fontWeight: '600', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Linkedin size={14} /> Ready for LinkedIn Feed
               </span>
@@ -296,6 +296,14 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
                   <span>Share on LinkedIn ↗</span>
                 </button>
               </div>
+            </div>
+
+            {/* LinkedIn 1-Click Paste Notice Banner */}
+            <div style={{ padding: '8px 12px', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 'var(--radius-sm)', fontSize: '0.76rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={14} flexShrink={0} />
+              <span>
+                <strong>Next step in LinkedIn tab:</strong> Press <strong>Ctrl + V</strong> (Paste) in the LinkedIn composer box to paste your AI text!
+              </span>
             </div>
 
             {/* Generated Post Textarea */}
