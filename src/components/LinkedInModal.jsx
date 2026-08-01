@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Linkedin, ExternalLink, Sparkles, Copy, Check, Globe, Github, Camera, Send, Loader2, Share2, Download, Image as ImageIcon } from 'lucide-react';
+import { X, Linkedin, ExternalLink, Sparkles, Copy, Check, Globe, Github, Camera, Send, Loader2, Share2, Download, Image as ImageIcon, Smartphone, Monitor, Layers } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const POST_STYLES = [
@@ -26,7 +26,10 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [generatedPost, setGeneratedPost] = useState('');
-  const [screenshotUrl, setScreenshotUrl] = useState('');
+  
+  // Multi-Screenshot State
+  const [screenshotTabs, setScreenshotTabs] = useState([]);
+  const [activeTabId, setActiveTabId] = useState('desktop');
   const [isImgLoading, setIsImgLoading] = useState(false);
 
   if (!isOpen) return null;
@@ -41,9 +44,32 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
       cleanUrl = `https://${cleanUrl}`;
     }
 
-    // Primary Screenshot API: Microlink API (Instant, live Chromium render)
-    const primaryScreenshot = `https://api.microlink.io/?url=${encodeURIComponent(cleanUrl)}&screenshot=true&embed=screenshot.url`;
-    setScreenshotUrl(primaryScreenshot);
+    const encoded = encodeURIComponent(cleanUrl);
+
+    // Multi-Viewport & Multi-Section Live Screenshot Suite
+    const capturedScreenshots = [
+      {
+        id: 'desktop',
+        label: '🖥️ Hero Desktop',
+        icon: Monitor,
+        url: `https://api.microlink.io/?url=${encoded}&screenshot=true&embed=screenshot.url`
+      },
+      {
+        id: 'features',
+        label: '⚡ Features & Layout',
+        icon: Layers,
+        url: `https://s.wordpress.com/mshots/v1/${encoded}?w=1200&h=800`
+      },
+      {
+        id: 'mobile',
+        label: '📱 Mobile View',
+        icon: Smartphone,
+        url: `https://api.microlink.io/?url=${encoded}&screenshot=true&viewport.width=375&viewport.height=812&embed=screenshot.url`
+      }
+    ];
+
+    setScreenshotTabs(capturedScreenshots);
+    setActiveTabId('desktop');
 
     setTimeout(() => {
       let targetName = 'Project Showcase';
@@ -93,16 +119,21 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
     }, 700);
   };
 
-  const handleImgError = () => {
+  const handleImgError = (tabId) => {
     const rawInput = urlInput.trim() || 'https://repo2resume.vercel.app';
     let cleanUrl = rawInput.startsWith('http') ? rawInput : `https://${rawInput}`;
-    // Secondary Fallback: WordPress mshots
-    const fallbackScreenshot = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(cleanUrl)}?w=1200&h=675`;
-    if (screenshotUrl !== fallbackScreenshot) {
-      setScreenshotUrl(fallbackScreenshot);
-    } else {
-      setIsImgLoading(false);
-    }
+    const encoded = encodeURIComponent(cleanUrl);
+
+    setScreenshotTabs(prev => prev.map(tab => {
+      if (tab.id === tabId) {
+        return {
+          ...tab,
+          url: `https://s.wordpress.com/mshots/v1/${encoded}?w=1200&h=800`
+        };
+      }
+      return tab;
+    }));
+    setIsImgLoading(false);
   };
 
   const handleCopy = async () => {
@@ -117,39 +148,44 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
     }
   };
 
-  const handleDownloadScreenshot = async () => {
-    if (!screenshotUrl) return;
+  const activeScreenshot = screenshotTabs.find(t => t.id === activeTabId) || screenshotTabs[0];
+
+  const handleDownloadSingle = async (tab) => {
+    if (!tab?.url) return;
     try {
-      const response = await fetch(screenshotUrl);
+      const response = await fetch(tab.url);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = 'website-screenshot.png';
+      a.download = `${tab.id}-screenshot.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
     } catch {
-      window.open(screenshotUrl, '_blank');
+      window.open(tab.url, '_blank');
     }
   };
 
-  const handleShareToLinkedIn = async () => {
-    // 1. Auto-copy post text to clipboard & fire celebratory confetti
-    await handleCopy();
+  const handleDownloadAll = () => {
+    screenshotTabs.forEach(tab => {
+      handleDownloadSingle(tab);
+    });
+  };
 
+  const handleShareToLinkedIn = async () => {
+    await handleCopy();
     const rawInput = urlInput.trim() || 'https://repo2resume.vercel.app';
     let cleanUrl = rawInput.startsWith('http') ? rawInput : `https://${rawInput}`;
 
-    // 2. Open LinkedIn Share Window directly in a new browser tab
     const linkedinShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(cleanUrl)}`;
     window.open(linkedinShareUrl, '_blank');
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '24px', maxWidth: '680px', border: '1px solid #0077b5', background: '#0e141a' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: '24px', maxWidth: '720px', border: '1px solid #0077b5', background: '#0e141a' }}>
         
         {/* Modal Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '14px' }}>
@@ -159,7 +195,7 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
             </div>
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
-                LinkedIn <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.12em', color: '#38bdf8' }}>Post & Screenshot Explorer</span>
+                Multi-Page <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.12em', color: '#38bdf8' }}>Website Explorer & LinkedIn Generator</span>
               </h2>
             </div>
           </div>
@@ -169,7 +205,7 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
         </div>
 
         <p style={{ fontSize: '0.84rem', color: '#94a3b8', marginBottom: '16px', lineHeight: '1.5' }}>
-          Drop any public website URL below. Repo2Resume automatically captures a live Chromium screenshot of the site, analyzes features, and formats an engaging LinkedIn launch post.
+          Enter any website URL. Repo2Resume explores the site, captures <strong>multiple page & viewport screenshots</strong> (Desktop, Features, Mobile), and writes a LinkedIn launch post.
         </p>
 
         {/* URL Input Form */}
@@ -224,51 +260,92 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
           style={{ width: '100%', height: '40px', fontSize: '0.86rem', gap: '8px', marginBottom: '18px', background: '#0077b5', borderColor: '#0077b5', color: '#ffffff' }}
         >
           {isGenerating ? <Loader2 size={16} className="spin" /> : <Camera size={16} />}
-          <span>Capture Screenshot & Generate LinkedIn Post</span>
+          <span>Explore Site & Capture Multi-Page Screenshots</span>
         </button>
 
-        {/* Automatic Screenshot & Post Output Container */}
-        {generatedPost && (
+        {/* Multi-Screenshot Gallery Container */}
+        {generatedPost && screenshotTabs.length > 0 && (
           <div className="glass-panel animate-fade-in-up" style={{ padding: '16px', background: '#090d12', border: '1px solid #1e293b', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             
-            {/* Live Captured Website Screenshot Card */}
-            {screenshotUrl && (
-              <div style={{ background: '#05070a', border: '1px solid #1e293b', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                <div style={{ padding: '6px 12px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.74rem', color: '#94a3b8' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Camera size={12} color="#38bdf8" /> Automated Live Screenshot Captured
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm font-mono"
-                      onClick={handleDownloadScreenshot}
-                      style={{ fontSize: '0.7rem', padding: '1px 8px', height: '22px', gap: '4px' }}
-                    >
-                      <Download size={11} /> Download Image
-                    </button>
-                    <a href={screenshotUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm font-mono" style={{ fontSize: '0.7rem', color: '#38bdf8', padding: '1px 6px', height: '22px' }}>
-                      Open Full Image ↗
-                    </a>
-                  </div>
-                </div>
+            {/* Screenshot Multi-Tab Gallery */}
+            <div style={{ background: '#05070a', border: '1px solid #1e293b', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+              
+              {/* Tab Selector Navigation Bar */}
+              <div style={{ padding: '6px 10px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 
-                <div style={{ position: 'relative', width: '100%', minHeight: '180px', maxHeight: '260px', overflow: 'hidden', background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {isImgLoading && (
-                    <div style={{ position: 'absolute', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#94a3b8' }}>
-                      <Loader2 size={14} className="spin" /> Rendering Headless Screenshot...
-                    </div>
-                  )}
-                  <img
-                    src={screenshotUrl}
-                    alt=""
-                    onLoad={() => setIsImgLoading(false)}
-                    onError={handleImgError}
-                    style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
-                  />
+                {/* Viewport / Page Tabs */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {screenshotTabs.map(tab => {
+                    const IconComp = tab.icon;
+                    const isActive = activeTabId === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveTabId(tab.id);
+                          setIsImgLoading(true);
+                        }}
+                        className={`btn ${isActive ? 'btn-primary' : 'btn-ghost'} btn-sm`}
+                        style={{
+                          fontSize: '0.74rem',
+                          padding: '3px 8px',
+                          height: '24px',
+                          gap: '5px',
+                          background: isActive ? '#0077b5' : 'transparent',
+                          borderColor: isActive ? '#0077b5' : 'transparent',
+                          color: isActive ? '#ffffff' : '#94a3b8'
+                        }}
+                      >
+                        <IconComp size={12} />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Multi Download Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm font-mono"
+                    onClick={() => handleDownloadSingle(activeScreenshot)}
+                    style={{ fontSize: '0.7rem', padding: '1px 8px', height: '24px', gap: '4px' }}
+                    title="Download Current Screenshot"
+                  >
+                    <Download size={11} /> Save Current
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm font-mono"
+                    onClick={handleDownloadAll}
+                    style={{ fontSize: '0.7rem', padding: '1px 8px', height: '24px', gap: '4px', background: '#0077b5', borderColor: '#0077b5' }}
+                    title="Download All 3 Screenshots for LinkedIn Carousel"
+                  >
+                    <Download size={11} /> Download All (3)
+                  </button>
                 </div>
               </div>
-            )}
+              
+              {/* Image Preview Canvas */}
+              <div style={{ position: 'relative', width: '100%', minHeight: '220px', maxHeight: '280px', overflow: 'hidden', background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {isImgLoading && (
+                  <div style={{ position: 'absolute', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#94a3b8' }}>
+                    <Loader2 size={14} className="spin" /> Capturing {activeScreenshot?.label}...
+                  </div>
+                )}
+                {activeScreenshot && (
+                  <img
+                    src={activeScreenshot.url}
+                    alt={activeScreenshot.label}
+                    onLoad={() => setIsImgLoading(false)}
+                    onError={() => handleImgError(activeScreenshot.id)}
+                    style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
+                  />
+                )}
+              </div>
+            </div>
 
             {/* Post Action Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
@@ -321,4 +398,5 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
     </div>
   );
 }
+
 
