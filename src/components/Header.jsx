@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Code2, Star, Sparkles, Check } from 'lucide-react';
+import { Settings, Code2, Star, Sparkles, Check, Linkedin } from 'lucide-react';
 
 export default function Header({ 
   onGoHome,
-  onOpenSettings, 
+  onOpenSettings,
+  onOpenLinkedInModal, 
   activeUsername, 
   hasApiKey 
 }) {
@@ -96,6 +97,27 @@ export default function Header({
 
         {/* Right Navigation Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+
+          {/* Dedicated LinkedIn Post Generator Nav Button */}
+          <button 
+            type="button" 
+            className="btn btn-secondary btn-sm"
+            onClick={onOpenLinkedInModal}
+            title="Generate & Share LinkedIn Posts from Websites & Repos"
+            style={{ 
+              gap: '6px', 
+              height: '34px', 
+              fontSize: '0.8rem',
+              padding: '0 12px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid rgba(0, 119, 181, 0.4)',
+              background: 'rgba(0, 119, 181, 0.12)',
+              color: '#38bdf8'
+            }}
+          >
+            <Linkedin size={14} color="#38bdf8" />
+            <span>LinkedIn Post</span>
+          </button>
 
           {/* Settings Modal Button */}
           <button 
