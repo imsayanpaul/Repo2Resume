@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Linkedin, ExternalLink, Sparkles, Copy, Check, Globe, Github, Camera, Send, Loader2, Share2 } from 'lucide-react';
+import { X, Linkedin, ExternalLink, Sparkles, Copy, Check, Globe, Github, Camera, Send, Loader2, Share2, Download, Image as ImageIcon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 const POST_STYLES = [
@@ -26,20 +26,32 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [generatedPost, setGeneratedPost] = useState('');
+  const [screenshotUrl, setScreenshotUrl] = useState('');
+  const [isImgLoading, setIsImgLoading] = useState(false);
 
   if (!isOpen) return null;
 
   const handleGenerate = () => {
     setIsGenerating(true);
+    setIsImgLoading(true);
+
+    const rawInput = urlInput.trim() || 'https://repo2resume.vercel.app';
+    let cleanUrl = rawInput;
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+
+    // Live Headless Chromium Screenshot API
+    const liveScreenshot = `https://image.thum.io/get/width/1000/crop/600/noanimate/${encodeURIComponent(cleanUrl)}`;
+    setScreenshotUrl(liveScreenshot);
+
     setTimeout(() => {
       let targetName = 'Project Showcase';
-      let targetUrl = urlInput.trim() || 'https://repo2resume.vercel.app';
-      
       if (urlInput.includes('github.com/')) {
         targetName = urlInput.split('github.com/')[1] || 'GitHub Repository';
       } else if (urlInput) {
         try {
-          targetName = new URL(urlInput.startsWith('http') ? urlInput : `https://${urlInput}`).hostname;
+          targetName = new URL(cleanUrl).hostname;
         } catch {
           targetName = urlInput;
         }
@@ -55,7 +67,7 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
           `• 🎯 Job Description Keyword Matcher to pass ATS screeners\n` +
           `• 📄 1-Click Exports to LaTeX, Markdown, & Rich HTML\n` +
           `• 🔒 100% Client-Side Privacy (Zero backend middleman servers)\n\n` +
-          `👉 Check out the live demo here: ${targetUrl}\n\n` +
+          `👉 Check out the live demo here: ${cleanUrl}\n\n` +
           `#SoftwareEngineering #BuildInPublic #OpenSource #ReactJS #WebDevelopment #DeveloperTools #TechCareer`;
       } else if (selectedStyle === 'architecture') {
         postContent = `🏗️ Engineering Deep-Dive: System Architecture for ${targetName}\n\n` +
@@ -65,20 +77,20 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
           `• AI Intelligence: Gemini 2.0 Flash Vision for real-time code analysis\n` +
           `• Styling: Executive Obsidian & Silver design system with CSS glassmorphism\n` +
           `• Automation: GitHub REST API metadata & AST keyword parser\n\n` +
-          `Live Link & Repository: ${targetUrl}\n\n` +
+          `Live Link & Repository: ${cleanUrl}\n\n` +
           `Would love to hear your feedback! Drop your thoughts below 👇\n\n` +
           `#SystemDesign #React #TypeScript #AI #WebArchitecture #FrontendEngineering #OpenSource`;
       } else {
         postContent = `💡 Build in Public Update: ${targetName}\n\n` +
           `Over the past few weeks, I set out to solve a real problem: converting complex GitHub projects into high-impact, ATS-optimized resume bullet points.\n\n` +
           `Today, I'm happy to announce the v1.0 release is live! It includes real-time Job Description matching, custom AI prompt regeneration, and full mobile responsiveness.\n\n` +
-          `Try it out here: ${targetUrl}\n\n` +
+          `Try it out here: ${cleanUrl}\n\n` +
           `#BuildInPublic #SoftwareDeveloper #ResumeTips #AI #TechCommunity #ProductLaunch`;
       }
 
       setGeneratedPost(postContent);
       setIsGenerating(false);
-    }, 600);
+    }, 700);
   };
 
   const handleCopy = async () => {
@@ -111,7 +123,7 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
             </div>
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
-                LinkedIn <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.12em', color: '#38bdf8' }}>Post Generator</span>
+                LinkedIn <span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.12em', color: '#38bdf8' }}>Post & Screenshot Explorer</span>
               </h2>
             </div>
           </div>
@@ -121,13 +133,13 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
         </div>
 
         <p style={{ fontSize: '0.84rem', color: '#94a3b8', marginBottom: '16px', lineHeight: '1.5' }}>
-          Turn any public website or GitHub repository link into an engaging, high-converting LinkedIn post with automated tech stack highlights and call-to-action hashtags.
+          Drop any public website URL below. Repo2Resume automatically captures a live Chromium screenshot of the site, analyzes features, and formats an engaging LinkedIn launch post.
         </p>
 
         {/* URL Input Form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
           <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ffffff' }}>
-            Website or GitHub Repository Link:
+            Target Website or Repository URL:
           </label>
           <div style={{ display: 'flex', gap: '8px' }}>
             <div style={{ position: 'relative', flex: 1 }}>
@@ -135,7 +147,7 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
               <input
                 type="text"
                 className="input-field"
-                placeholder="https://repo2resume.vercel.app or github.com/username/repo"
+                placeholder="e.g. https://repo2resume.vercel.app"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 style={{ paddingLeft: '36px', height: '38px', fontSize: '0.84rem' }}
@@ -175,13 +187,43 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
           disabled={isGenerating}
           style={{ width: '100%', height: '40px', fontSize: '0.86rem', gap: '8px', marginBottom: '18px', background: '#0077b5', borderColor: '#0077b5', color: '#ffffff' }}
         >
-          {isGenerating ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
-          <span>Generate LinkedIn Post</span>
+          {isGenerating ? <Loader2 size={16} className="spin" /> : <Camera size={16} />}
+          <span>Capture Screenshot & Generate LinkedIn Post</span>
         </button>
 
-        {/* Post Preview Output */}
+        {/* Automatic Screenshot & Post Output Container */}
         {generatedPost && (
-          <div className="glass-panel animate-fade-in-up" style={{ padding: '16px', background: '#090d12', border: '1px solid #1e293b', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="glass-panel animate-fade-in-up" style={{ padding: '16px', background: '#090d12', border: '1px solid #1e293b', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            
+            {/* Live Captured Website Screenshot Card */}
+            {screenshotUrl && (
+              <div style={{ background: '#05070a', border: '1px solid #1e293b', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                <div style={{ padding: '6px 12px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.74rem', color: '#94a3b8' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Camera size={12} color="#38bdf8" /> Automated Live Screenshot Captured
+                  </span>
+                  <a href={screenshotUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm font-mono" style={{ fontSize: '0.7rem', color: '#38bdf8', padding: '1px 6px', height: '22px' }}>
+                    Open Full Image ↗
+                  </a>
+                </div>
+                
+                <div style={{ position: 'relative', width: '100%', minHeight: '180px', maxHeight: '260px', overflow: 'hidden', background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isImgLoading && (
+                    <div style={{ position: 'absolute', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#94a3b8' }}>
+                      <Loader2 size={14} className="spin" /> Rendering Headless Screenshot...
+                    </div>
+                  )}
+                  <img
+                    src={screenshotUrl}
+                    alt="Captured Website Screenshot"
+                    onLoad={() => setIsImgLoading(false)}
+                    style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Post Action Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.78rem', fontWeight: '600', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Linkedin size={14} /> Ready for LinkedIn Feed
@@ -194,7 +236,7 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
                   style={{ fontSize: '0.76rem', padding: '3px 10px', height: '28px' }}
                 >
                   {copied ? <Check size={12} color="#ffffff" /> : <Copy size={12} />}
-                  <span>{copied ? 'Copied!' : 'Copy'}</span>
+                  <span>{copied ? 'Copied!' : 'Copy Post'}</span>
                 </button>
 
                 <button
@@ -209,9 +251,10 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
               </div>
             </div>
 
+            {/* Generated Post Textarea */}
             <textarea
               className="input-field font-sans"
-              rows={8}
+              rows={7}
               value={generatedPost}
               onChange={(e) => setGeneratedPost(e.target.value)}
               style={{ fontSize: '0.84rem', lineHeight: '1.6', background: '#05070a', color: '#f1f5f9', border: '1px solid #1e293b', resize: 'vertical' }}
@@ -223,3 +266,4 @@ export default function LinkedInModal({ isOpen, onClose, activeRepos = [] }) {
     </div>
   );
 }
+
