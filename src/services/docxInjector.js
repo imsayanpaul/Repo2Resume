@@ -9,11 +9,14 @@ import JSZip from 'jszip';
 
 // Common heading names for the "Projects" section in resumes
 const PROJECT_HEADINGS = [
-  'projects', 'project', 'project experience', 'personal projects',
+  'projects', 'project experience', 'personal projects',
   'technical projects', 'side projects', 'open source projects',
   'selected projects', 'key projects', 'academic projects',
-  'professional projects', 'portfolio', 'portfolio projects'
+  'professional projects', 'portfolio', 'portfolio projects', 'project'
 ];
+
+// Heading keywords that must NEVER be considered a Projects section heading
+const EXCLUDED_PROJECT_KEYWORDS = ['work', 'employment', 'job', 'leadership', 'education', 'skills', 'summary'];
 
 // Common section headings that signal the END of the projects section
 const SECTION_HEADINGS = [
@@ -24,7 +27,7 @@ const SECTION_HEADINGS = [
   'achievements', 'publications', 'interests', 'activities', 'extracurricular', 'extracurricular activities',
   'volunteer', 'volunteer experience', 'community involvement', 'references', 'summary', 'objective',
   'profile', 'about me', 'languages', 'courses', 'coursework', 'leadership', 'leadership experience',
-  'involvement', 'memberships', 'affiliations', 'projects'
+  'involvement', 'memberships', 'affiliations'
 ];
 
 /**
@@ -114,15 +117,24 @@ function findProjectsSectionBoundary(paragraphs, wNs) {
     const rawText = getParagraphText(paragraphs[i], wNs).trim();
     const cleanText = rawText.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
     const isHeadingStyle = isHeading(paragraphs[i], wNs);
-    const isAllCaps = rawText.length > 2 && rawText === rawText.toUpperCase() && rawText.length < 60;
+    const isAllCaps = rawText.length > 2 && rawText === rawText.toUpperCase() && rawText.length < 50;
     const isBold = isBoldParagraph(paragraphs[i], wNs);
     const hasShading = hasParagraphShading(paragraphs[i], wNs);
     
+    // A heading must be relatively short (< 40 characters)
+    const isShortText = rawText.length > 2 && rawText.length < 40;
+    
     // Look for the Projects heading
     if (projectHeadingIdx === -1) {
-      if (cleanText && PROJECT_HEADINGS.some(h => cleanText === h || cleanText.includes(h))) {
-        if (isHeadingStyle || isAllCaps || isBold || hasShading || PROJECT_HEADINGS.includes(cleanText)) {
-          projectHeadingIdx = i;
+      if (cleanText && isShortText) {
+        // Exclude work/employment headings
+        const isExcluded = EXCLUDED_PROJECT_KEYWORDS.some(k => cleanText.includes(k));
+        
+        if (!isExcluded) {
+          const isProjectMatch = PROJECT_HEADINGS.some(h => cleanText === h || cleanText.startsWith(h + ' ') || cleanText.endsWith(' ' + h));
+          if (isProjectMatch && (isHeadingStyle || isAllCaps || isBold || hasShading || PROJECT_HEADINGS.includes(cleanText))) {
+            projectHeadingIdx = i;
+          }
         }
       }
       continue;
@@ -135,7 +147,7 @@ function findProjectsSectionBoundary(paragraphs, wNs) {
       const matchesKeyword = SECTION_HEADINGS.some(h => cleanText === h || cleanText.startsWith(h) || cleanText.includes(h));
       const isNotProject = !PROJECT_HEADINGS.some(h => cleanText === h);
       
-      if (isNotProject && (matchesKeyword || (isAllCaps && (isHeadingStyle || isBold || hasShading)))) {
+      if (isNotProject && isShortText && (matchesKeyword || (isAllCaps && (isHeadingStyle || isBold || hasShading)))) {
         nextSectionIdx = i;
         break;
       }
