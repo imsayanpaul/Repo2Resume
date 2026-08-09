@@ -17,12 +17,14 @@ const PROJECT_HEADINGS = [
 
 // Common section headings that signal the END of the projects section
 const SECTION_HEADINGS = [
-  'education', 'experience', 'work experience', 'professional experience',
-  'skills', 'technical skills', 'certifications', 'awards', 'honors',
-  'achievements', 'publications', 'interests', 'activities',
-  'extracurricular', 'volunteer', 'references', 'summary', 'objective',
-  'languages', 'courses', 'coursework', 'leadership', 'involvement',
-  'projects'
+  'education', 'experience', 'work experience', 'professional experience', 'related experience',
+  'employment', 'employment history', 'career history',
+  'skills', 'technical skills', 'core competencies', 'proficiencies',
+  'certifications', 'licenses', 'certificates', 'awards', 'honors', 'honors & involvement', 'honors and involvement',
+  'achievements', 'publications', 'interests', 'activities', 'extracurricular', 'extracurricular activities',
+  'volunteer', 'volunteer experience', 'community involvement', 'references', 'summary', 'objective',
+  'profile', 'about me', 'languages', 'courses', 'coursework', 'leadership', 'leadership experience',
+  'involvement', 'memberships', 'affiliations', 'projects'
 ];
 
 /**
@@ -64,9 +66,16 @@ export async function injectProjectsIntoDocx(docxFile, projectEntries, linkConfi
   // Generate OOXML paragraph nodes matching existing formatting
   const newNodes = generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, existingStyles);
   
-  // Insert the new nodes at the insertion point
-  for (const node of newNodes) {
-    body.insertBefore(node, insertionPoint);
+  // Insert the new nodes at the insertion point (before next section)
+  if (insertionPoint) {
+    for (const node of newNodes) {
+      body.insertBefore(node, insertionPoint);
+    }
+  } else {
+    // Append to body if Projects is the last section
+    for (const node of newNodes) {
+      body.appendChild(node);
+    }
   }
   
   const serializer = new XMLSerializer();
@@ -105,12 +114,13 @@ function findProjectsSectionBoundary(paragraphs, wNs) {
     const rawText = getParagraphText(paragraphs[i], wNs).trim();
     const cleanText = rawText.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
     const isHeadingStyle = isHeading(paragraphs[i], wNs);
-    const isAllCaps = rawText.length > 2 && rawText === rawText.toUpperCase();
+    const isAllCaps = rawText.length > 2 && rawText === rawText.toUpperCase() && rawText.length < 60;
     const isBold = isBoldParagraph(paragraphs[i], wNs);
     const hasShading = hasParagraphShading(paragraphs[i], wNs);
     
+    // Look for the Projects heading
     if (projectHeadingIdx === -1) {
-      if (cleanText && PROJECT_HEADINGS.some(h => cleanText === h || cleanText.startsWith(h + ' '))) {
+      if (cleanText && PROJECT_HEADINGS.some(h => cleanText === h || cleanText.includes(h))) {
         if (isHeadingStyle || isAllCaps || isBold || hasShading || PROJECT_HEADINGS.includes(cleanText)) {
           projectHeadingIdx = i;
         }
@@ -118,10 +128,14 @@ function findProjectsSectionBoundary(paragraphs, wNs) {
       continue;
     }
     
+    // After finding the Projects heading, look for the next major section heading
     if (projectHeadingIdx !== -1 && nextSectionIdx === -1) {
       if (!cleanText || i <= projectHeadingIdx + 1) continue;
-      const isNextSection = SECTION_HEADINGS.some(h => cleanText === h) && cleanText !== 'projects';
-      if (isNextSection && (isHeadingStyle || isAllCaps || isBold || hasShading)) {
+      
+      const matchesKeyword = SECTION_HEADINGS.some(h => cleanText === h || cleanText.startsWith(h) || cleanText.includes(h));
+      const isNotProject = !PROJECT_HEADINGS.some(h => cleanText === h);
+      
+      if (isNotProject && (matchesKeyword || (isAllCaps && (isHeadingStyle || isBold || hasShading)))) {
         nextSectionIdx = i;
         break;
       }
