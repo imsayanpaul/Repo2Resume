@@ -4,7 +4,6 @@ import RepoSelector from './components/RepoSelector';
 import ResumePreview from './components/ResumePreview';
 import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
-import LinkedInModal from './components/LinkedInModal';
 import Footer from './components/Footer';
 import { fetchUserRepos, fetchRepoReadme } from './services/github';
 import { generateRepoBullets } from './services/resumeEngine';
@@ -26,7 +25,6 @@ export default function App() {
   // Modals
   const [isJdOpen, setIsJdOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isLinkedInOpen, setIsLinkedInOpen] = useState(false);
   const [rateLimitReason, setRateLimitReason] = useState(null); // 'github' | 'gemini' | null
   const [jdText, setJdText] = useState('');
   const [jdKeywords, setJdKeywords] = useState([]);
@@ -192,7 +190,6 @@ export default function App() {
       <Header 
         onGoHome={handleGoHome}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenLinkedInModal={() => setIsLinkedInOpen(true)}
         activeUsername={userData?.username}
         hasApiKey={Boolean(geminiApiKey)}
       />
@@ -476,12 +473,6 @@ export default function App() {
         onSaveGithubToken={handleSaveGithubToken}
         rateLimitReason={rateLimitReason}
         onClearRateLimitReason={() => setRateLimitReason(null)}
-      />
-
-      <LinkedInModal 
-        isOpen={isLinkedInOpen}
-        onClose={() => setIsLinkedInOpen(false)}
-        activeRepos={repos}
       />
 
     </div>

@@ -184,47 +184,85 @@ export async function fetchRepoReadme(fullName, personalToken = '') {
  * Quick heuristic tech stack detector from repository metadata & topics
  */
 function extractFallbackDepsFromRepo(repo) {
-  const text = `${repo.name} ${repo.description} ${(repo.topics || []).join(' ')}`.toLowerCase();
+  const rawText = `${repo.name} ${repo.description || ''} ${(repo.topics || []).join(' ')}`.toLowerCase();
   const stack = new Set();
 
   if (repo.language) stack.add(repo.language);
 
-  const keywordsMap = {
-    'react': 'React',
-    'next': 'Next.js',
-    'vue': 'Vue.js',
-    'angular': 'Angular',
-    'node': 'Node.js',
-    'express': 'Express',
-    'fastapi': 'FastAPI',
-    'django': 'Django',
-    'flask': 'Flask',
-    'spring': 'Spring Boot',
-    'docker': 'Docker',
-    'kubernetes': 'Kubernetes',
-    'k8s': 'Kubernetes',
-    'aws': 'AWS',
-    'postgres': 'PostgreSQL',
-    'postgresql': 'PostgreSQL',
-    'mongo': 'MongoDB',
-    'redis': 'Redis',
-    'graphql': 'GraphQL',
-    'tailwind': 'Tailwind CSS',
-    'typescript': 'TypeScript',
-    'python': 'Python',
-    'rust': 'Rust',
-    'golang': 'Go',
-    'go': 'Go',
-    'kafka': 'Apache Kafka',
-    'grpc': 'gRPC',
-    'vector': 'Vector DB',
-    'llm': 'LLM / OpenAI',
-    'rag': 'RAG Architecture'
-  };
+  // Keyword -> Display Name mapping (ordered by specificity)
+  const keywordsMap = [
+    // Frontend
+    ['reactjs', 'React'], ['react-native', 'React Native'], ['react', 'React'],
+    ['nextjs', 'Next.js'], ['next.js', 'Next.js'],
+    ['vue', 'Vue.js'], ['nuxt', 'Nuxt.js'],
+    ['angular', 'Angular'], ['svelte', 'Svelte'],
+    ['gatsby', 'Gatsby'], ['vite', 'Vite'],
+    ['tailwind', 'Tailwind CSS'], ['bootstrap', 'Bootstrap'],
+    ['material-ui', 'Material UI'],
+    // Backend
+    ['nodejs', 'Node.js'], ['node.js', 'Node.js'],
+    ['express', 'Express'], ['fastapi', 'FastAPI'],
+    ['django', 'Django'], ['flask', 'Flask'],
+    ['spring-boot', 'Spring Boot'], ['spring', 'Spring Boot'],
+    ['nestjs', 'NestJS'], ['rails', 'Ruby on Rails'],
+    ['laravel', 'Laravel'], ['fastify', 'Fastify'],
+    // Databases
+    ['postgresql', 'PostgreSQL'], ['postgres', 'PostgreSQL'],
+    ['mongodb', 'MongoDB'], ['mongo', 'MongoDB'],
+    ['mysql', 'MySQL'], ['sqlite', 'SQLite'],
+    ['redis', 'Redis'], ['elasticsearch', 'Elasticsearch'],
+    ['dynamodb', 'DynamoDB'], ['neo4j', 'Neo4j'],
+    // ORMs
+    ['prisma', 'Prisma'], ['drizzle', 'Drizzle ORM'],
+    ['sequelize', 'Sequelize'], ['typeorm', 'TypeORM'],
+    ['mongoose', 'Mongoose'], ['sqlalchemy', 'SQLAlchemy'],
+    // Cloud & BaaS
+    ['firebase', 'Firebase'], ['supabase', 'Supabase'],
+    ['aws', 'AWS'], ['azure', 'Azure'],
+    ['vercel', 'Vercel'], ['heroku', 'Heroku'],
+    // DevOps
+    ['docker', 'Docker'], ['kubernetes', 'Kubernetes'], ['k8s', 'Kubernetes'],
+    ['terraform', 'Terraform'], ['nginx', 'Nginx'],
+    ['github-actions', 'GitHub Actions'],
+    // APIs & Protocols
+    ['graphql', 'GraphQL'], ['grpc', 'gRPC'],
+    ['websocket', 'WebSockets'], ['socket.io', 'Socket.io'],
+    ['trpc', 'tRPC'],
+    // Auth
+    ['jwt', 'JWT'], ['oauth', 'OAuth'], ['auth0', 'Auth0'],
+    // AI & ML
+    ['openai', 'OpenAI API'], ['gemini', 'Gemini API'],
+    ['langchain', 'LangChain'], ['llm', 'LLM'],
+    ['tensorflow', 'TensorFlow'], ['pytorch', 'PyTorch'],
+    ['huggingface', 'Hugging Face'], ['pinecone', 'Pinecone'],
+    ['machine-learning', 'Machine Learning'],
+    // Messaging
+    ['kafka', 'Apache Kafka'], ['rabbitmq', 'RabbitMQ'],
+    // Payment
+    ['stripe', 'Stripe'], ['twilio', 'Twilio'],
+    // Languages
+    ['typescript', 'TypeScript'], ['python', 'Python'],
+    ['rust', 'Rust'], ['golang', 'Go'],
+    // Testing
+    ['jest', 'Jest'], ['cypress', 'Cypress'],
+    ['playwright', 'Playwright'], ['pytest', 'PyTest'],
+    // State
+    ['redux', 'Redux'], ['zustand', 'Zustand'],
+    // Desktop/Mobile
+    ['electron', 'Electron'], ['tauri', 'Tauri'],
+    ['chrome-extension', 'Chrome Extension'],
+  ];
 
-  Object.entries(keywordsMap).forEach(([key, val]) => {
-    if (text.includes(key)) stack.add(val);
-  });
+  const shortWords = new Set(['vue', 'aws', 'jwt', 'llm', 'k8s']);
+  
+  for (const [keyword, displayName] of keywordsMap) {
+    if (shortWords.has(keyword)) {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      if (regex.test(rawText)) stack.add(displayName);
+    } else {
+      if (rawText.includes(keyword)) stack.add(displayName);
+    }
+  }
 
   return Array.from(stack);
 }
