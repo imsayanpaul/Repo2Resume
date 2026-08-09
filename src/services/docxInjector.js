@@ -313,17 +313,25 @@ function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
   const p = xmlDoc.createElementNS(wNs, 'w:p');
   
   // Use existing title paragraph properties or create default
+  let pPr;
   if (styles.titlePPr) {
-    p.appendChild(styles.titlePPr.cloneNode(true));
+    pPr = styles.titlePPr.cloneNode(true);
   } else {
-    const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
-    const spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
-    spacing.setAttribute('w:after', '40');
-    spacing.setAttribute('w:before', '80');
-    spacing.setAttribute('w:line', '276');
-    pPr.appendChild(spacing);
-    p.appendChild(pPr);
+    pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
   }
+  
+  // Ensure clear spacing above the project title (~12pt / 240 dxa)
+  let spacing = pPr.getElementsByTagNameNS(wNs, 'spacing')[0];
+  if (!spacing) {
+    spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
+    pPr.appendChild(spacing);
+  }
+  const currentBefore = parseInt(spacing.getAttribute('w:before') || '0', 10);
+  if (currentBefore < 200) {
+    spacing.setAttribute('w:before', '240');
+  }
+  
+  p.appendChild(pPr);
   
   // Bold run: Project Name
   const nameRun = createStyledRun(xmlDoc, wNs, project.repoName, styles.titleRPr, { bold: true });
