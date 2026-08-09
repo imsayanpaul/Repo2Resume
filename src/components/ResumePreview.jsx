@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal, Sparkles, Wand2, Send, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal, Sparkles, Wand2, Send, X, Upload, FileUp, CheckCircle, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { injectProjectsIntoDocx, downloadDocxBlob } from '../services/docxInjector';
 
 const TONES = [
   { 
@@ -42,6 +43,13 @@ export default function ResumePreview({
   const [hoveredTone, setHoveredTone] = useState(null);
   const [isCustomPromptOpen, setIsCustomPromptOpen] = useState(false);
   const [customPromptText, setCustomPromptText] = useState('');
+
+  // Resume Upload State
+  const [uploadedDocx, setUploadedDocx] = useState(null); // { file: File, name: string }
+  const [isInjecting, setIsInjecting] = useState(false);
+  const [injectStatus, setInjectStatus] = useState(null); // 'success' | 'error' | null
+  const [injectError, setInjectError] = useState('');
+  const docxInputRef = useRef(null);
 
   // Per-Project Link Settings: { [repoId]: { showGithub: true, showDemo: false, demoUrl: '' } }
   const [projectLinkConfigs, setProjectLinkConfigs] = useState({});
@@ -178,6 +186,52 @@ export default function ResumePreview({
     }
   };
 
+  // Resume Upload Handlers
+  const handleDocxUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.docx')) {
+      setInjectError('Please upload a .docx file (Word document).');
+      setInjectStatus('error');
+      setTimeout(() => setInjectStatus(null), 4000);
+      return;
+    }
+    setUploadedDocx({ file, name: file.name });
+    setInjectStatus(null);
+    setInjectError('');
+  };
+
+  const handleInjectIntoResume = async () => {
+    if (!uploadedDocx || generatedBullets.length === 0) return;
+    setIsInjecting(true);
+    setInjectStatus(null);
+    setInjectError('');
+    try {
+      const modifiedBlob = await injectProjectsIntoDocx(
+        uploadedDocx.file,
+        generatedBullets,
+        projectLinkConfigs
+      );
+      downloadDocxBlob(modifiedBlob, uploadedDocx.name);
+      setInjectStatus('success');
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+      setTimeout(() => setInjectStatus(null), 5000);
+    } catch (err) {
+      console.error('DOCX injection failed:', err);
+      setInjectError(err.message || 'Failed to inject projects into resume.');
+      setInjectStatus('error');
+    } finally {
+      setIsInjecting(false);
+    }
+  };
+
+  const handleRemoveUploadedDocx = () => {
+    setUploadedDocx(null);
+    setInjectStatus(null);
+    setInjectError('');
+    if (docxInputRef.current) docxInputRef.current.value = '';
+  };
+
   return (
     <div className="glass-panel" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0 }}>
       
@@ -263,6 +317,62 @@ export default function ResumePreview({
             {copied ? <Check size={14} color="#ffffff" /> : <Copy size={14} />}
             <span>{copied ? 'Copied to Clipboard!' : 'Copy Resume'}</span>
           </button>
+
+          {/* Resume Upload & Inject */}
+          <input
+            ref={docxInputRef}
+            type="file"
+            accept=".docx"
+            onChange={handleDocxUpload}
+            style={{ display: 'none' }}
+          />
+
+          {!uploadedDocx ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={() => docxInputRef.current?.click()}
+              disabled={generatedBullets.length === 0 || isGenerating}
+              title="Upload your existing resume (.docx) to inject projects into it"
+              style={{ height: '32px', fontSize: '0.78rem', padding: '0 10px', gap: '5px' }}
+            >
+              <Upload size={13} /> Upload Resume
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${injectStatus === 'success' ? 'btn-secondary' : 'btn-primary'}`}
+                onClick={handleInjectIntoResume}
+                disabled={isInjecting || generatedBullets.length === 0}
+                title={`Inject projects into ${uploadedDocx.name}`}
+                style={{
+                  height: '32px',
+                  fontSize: '0.78rem',
+                  padding: '0 12px',
+                  gap: '5px',
+                  boxShadow: injectStatus !== 'success' ? '0 0 12px rgba(255,255,255,0.2)' : 'none'
+                }}
+              >
+                {isInjecting ? (
+                  <><Loader2 size={13} className="spin" /> Injecting...</>
+                ) : injectStatus === 'success' ? (
+                  <><CheckCircle size={13} /> Downloaded!</>
+                ) : (
+                  <><FileUp size={13} /> Inject into Resume</>
+                )}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={handleRemoveUploadedDocx}
+                title="Remove uploaded resume"
+                style={{ height: '32px', padding: '0 6px', minWidth: 'auto' }}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          )}
         </div>
 
       </div>
@@ -285,6 +395,36 @@ export default function ResumePreview({
           <strong style={{ color: '#ffffff' }}>{activeToneObj.label}:</strong> {activeToneObj.tooltip}
         </span>
       </div>
+
+      {/* Upload Status / Error Banner */}
+      {uploadedDocx && (
+        <div style={{
+          padding: '5px 12px',
+          borderRadius: 'var(--radius-sm)',
+          background: injectStatus === 'error' ? 'rgba(239,68,68,0.1)' : injectStatus === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(99,102,241,0.08)',
+          border: `1px solid ${injectStatus === 'error' ? 'rgba(239,68,68,0.3)' : injectStatus === 'success' ? 'rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.2)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.74rem',
+          color: injectStatus === 'error' ? '#f87171' : injectStatus === 'success' ? '#4ade80' : '#a5b4fc',
+          flexShrink: 0
+        }}>
+          {injectStatus === 'error' ? (
+            <AlertCircle size={13} style={{ flexShrink: 0 }} />
+          ) : injectStatus === 'success' ? (
+            <CheckCircle size={13} style={{ flexShrink: 0 }} />
+          ) : (
+            <FileUp size={13} style={{ flexShrink: 0 }} />
+          )}
+          <span style={{ lineHeight: '1.4' }}>
+            {injectStatus === 'error' ? injectError : 
+             injectStatus === 'success' ? `Projects injected and downloaded successfully!` :
+             <>Resume loaded: <strong style={{ color: '#ffffff' }}>{uploadedDocx.name}</strong> — click "Inject into Resume" to add projects</>
+            }
+          </span>
+        </div>
+      )}
 
       {/* Main Content Area */}
       {isGenerating ? (
