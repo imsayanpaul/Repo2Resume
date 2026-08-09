@@ -37,7 +37,8 @@ export default function Footer({ onOpenSettings, onOpenJdModal }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#ffffff'
+                color: '#ffffff',
+                flexShrink: 0
               }}>
                 <Code2 size={18} />
               </div>
