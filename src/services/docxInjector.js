@@ -147,12 +147,16 @@ function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionId
   
   let titlePPr = null;   // Paragraph properties for title line
   let titleRPr = null;   // Run properties for title name (bold part)
-  let techRPr = null;    // Run properties for tech stack (italic part)
+  let techRPr = null;    // Run properties for tech stack (italic/regular part)
+  let sepRPr = null;     // Run properties for separator runs (pipes)
   let bulletPPr = null;  // Paragraph properties for bullet lines
-  let bulletRPr = null;  // Run properties for bullet text
+  let bulletRPr = null;  // Run properties for bullet REGULAR text (non-bold)
+  let bulletBoldRPr = null; // Run properties for bold first phrase in bullets
   let bulletNumPr = null; // Numbering properties (if bullets use Word list numbering)
   let hasBulletChar = false; // Whether bullets use a character prefix (•, -, etc.)
   let bulletChar = '•';
+  let hasRightAlignedLink = false; // Whether title has right-aligned link via tab stop
+  let linkRPr = null;    // Run properties for link text
   
   for (const para of sectionParagraphs) {
     const text = getParagraphText(para, wNs).trim();
@@ -164,7 +168,7 @@ function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionId
     // Check if this paragraph uses Word list numbering
     const numPr = pPr?.getElementsByTagNameNS(wNs, 'numPr')[0];
     
-    // Detect title paragraph: has bold text and contains a pipe separator or tech keywords
+    // Detect title paragraph: has bold/underlined text and contains a pipe separator or tech keywords
     const isTitleLike = runs.some(r => {
       const rPr = r.getElementsByTagNameNS(wNs, 'rPr')[0];
       return rPr?.getElementsByTagNameNS(wNs, 'b')[0] || 
@@ -180,26 +184,46 @@ function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionId
       // Clone the title paragraph formatting
       if (pPr) titlePPr = pPr.cloneNode(true);
       
-      // Find the bold run (project name) and the italic/regular run (tech stack)
+      // Check for tab stops (indicates right-aligned links)
+      const tabs = pPr?.getElementsByTagNameNS(wNs, 'tabs')[0];
+      if (tabs) hasRightAlignedLink = true;
+      
+      // Check for tab characters in runs (also indicates right-aligned layout)
+      for (const run of runs) {
+        const tabEls = run.getElementsByTagNameNS(wNs, 'tab');
+        if (tabEls.length > 0) hasRightAlignedLink = true;
+      }
+      
+      // Find the bold run (project name), separator, and tech/link runs
       for (const run of runs) {
         const rPr = run.getElementsByTagNameNS(wNs, 'rPr')[0];
         if (!rPr) continue;
         
         const hasBold = rPr.getElementsByTagNameNS(wNs, 'b')[0];
         const hasItalic = rPr.getElementsByTagNameNS(wNs, 'i')[0];
+        const hasUnderline = rPr.getElementsByTagNameNS(wNs, 'u')[0];
+        const runText = getRunText(run, wNs);
         
-        if (hasBold && !titleRPr) {
+        // Detect link style (typically colored/underlined text like "GitHub Repository")
+        const colorEl = rPr.getElementsByTagNameNS(wNs, 'color')[0];
+        const rStyleEl = rPr.getElementsByTagNameNS(wNs, 'rStyle')[0];
+        const isHyperlink = (colorEl && colorEl.getAttribute('w:val') !== '000000') ||
+                           (rStyleEl && /hyperlink|link/i.test(rStyleEl.getAttribute('w:val') || ''));
+        
+        if (isHyperlink && !linkRPr) {
+          linkRPr = rPr.cloneNode(true);
+        } else if ((hasBold || hasUnderline) && !titleRPr) {
           titleRPr = rPr.cloneNode(true);
-        }
-        if (hasItalic && !techRPr) {
+        } else if (hasItalic && !techRPr) {
           techRPr = rPr.cloneNode(true);
+        } else if (runText.includes('|') && !sepRPr) {
+          sepRPr = rPr.cloneNode(true);
         }
       }
       
-      // If no explicit italic run found for tech, create one from title with italic added
+      // Fallback: create tech style from title style minus bold/underline
       if (!techRPr && titleRPr) {
         techRPr = titleRPr.cloneNode(true);
-        // Remove bold, add italic
         const boldEl = techRPr.getElementsByTagNameNS(wNs, 'b')[0];
         if (boldEl) techRPr.removeChild(boldEl);
         const underlineEl = techRPr.getElementsByTagNameNS(wNs, 'u')[0];
@@ -212,10 +236,32 @@ function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionId
       if (pPr) bulletPPr = pPr.cloneNode(true);
       if (numPr) bulletNumPr = numPr.cloneNode(true);
       
-      // Get run formatting from bullet text
-      if (runs.length > 0) {
-        const firstRun = runs[0];
-        const rPr = firstRun.getElementsByTagNameNS(wNs, 'rPr')[0];
+      // Scan ALL runs to find bold vs non-bold styles
+      // Existing bullets often start with a bold phrase then switch to regular
+      for (const run of runs) {
+        const rPr = run.getElementsByTagNameNS(wNs, 'rPr')[0];
+        if (!rPr) continue;
+        
+        const hasBold = rPr.getElementsByTagNameNS(wNs, 'b')[0];
+        
+        if (hasBold && !bulletBoldRPr) {
+          bulletBoldRPr = rPr.cloneNode(true);
+        }
+        if (!hasBold && !bulletRPr) {
+          bulletRPr = rPr.cloneNode(true);
+        }
+      }
+      
+      // If ALL runs were bold (no non-bold found), create a non-bold version
+      if (!bulletRPr && bulletBoldRPr) {
+        bulletRPr = bulletBoldRPr.cloneNode(true);
+        const bEl = bulletRPr.getElementsByTagNameNS(wNs, 'b')[0];
+        if (bEl) bulletRPr.removeChild(bEl);
+      }
+      
+      // If no bold runs found either, use first run
+      if (!bulletRPr && runs.length > 0) {
+        const rPr = runs[0].getElementsByTagNameNS(wNs, 'rPr')[0];
         if (rPr) bulletRPr = rPr.cloneNode(true);
       }
       
@@ -224,7 +270,7 @@ function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionId
         hasBulletChar = true;
         bulletChar = text[0];
       } else if (numPr) {
-        hasBulletChar = false; // Uses Word numbering, no character prefix needed
+        hasBulletChar = false;
       }
     }
     
@@ -232,7 +278,7 @@ function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionId
     if (titlePPr && bulletPPr) break;
   }
   
-  return { titlePPr, titleRPr, techRPr, bulletPPr, bulletRPr, bulletNumPr, hasBulletChar, bulletChar };
+  return { titlePPr, titleRPr, techRPr, sepRPr, bulletPPr, bulletRPr, bulletBoldRPr, bulletNumPr, hasBulletChar, bulletChar, hasRightAlignedLink, linkRPr };
 }
 
 /**
@@ -261,7 +307,7 @@ function generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, style
 
 /**
  * Create a project title paragraph cloning the existing resume's title style.
- * Format: "ProjectName | TechStack"  with optional links
+ * Layout: "ProjectName | TechStack" with optional right-aligned link
  */
 function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
   const p = xmlDoc.createElementNS(wNs, 'w:p');
@@ -270,7 +316,6 @@ function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
   if (styles.titlePPr) {
     p.appendChild(styles.titlePPr.cloneNode(true));
   } else {
-    // Fallback: default title formatting
     const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
     const spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
     spacing.setAttribute('w:after', '40');
@@ -280,47 +325,58 @@ function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
     p.appendChild(pPr);
   }
   
-  // Bold run: Project Name (using cloned title run properties)
+  // Bold run: Project Name
   const nameRun = createStyledRun(xmlDoc, wNs, project.repoName, styles.titleRPr, { bold: true });
   p.appendChild(nameRun);
   
   // Separator " | "
-  const sepRPr = styles.techRPr || styles.titleRPr;
-  const sep = createStyledRun(xmlDoc, wNs, '  |  ', sepRPr, {});
+  const sepBase = styles.sepRPr || styles.techRPr || styles.titleRPr;
+  const sep = createStyledRun(xmlDoc, wNs, '  |  ', sepBase, { removeBold: true, removeUnderline: true });
   p.appendChild(sep);
   
-  // Links (if any)
+  // Tech Stack
+  const techText = (project.techStack || []).join(', ');
+  const techRun = createStyledRun(xmlDoc, wNs, techText, styles.techRPr, { italic: true });
+  p.appendChild(techRun);
+  
+  // Links — right-aligned if existing format uses tab stops, otherwise inline
   const links = [];
   if (config.showGithub && project.html_url) links.push('GitHub');
   if (config.showDemo && config.demoUrl) links.push('Live Demo');
   
   if (links.length > 0) {
-    const linkText = createStyledRun(xmlDoc, wNs, links.join(' | '), sepRPr, { italic: true, color: '0563C1' });
+    if (styles.hasRightAlignedLink) {
+      // Add a tab character to push link to the right
+      const tabRun = xmlDoc.createElementNS(wNs, 'w:r');
+      const tabEl = xmlDoc.createElementNS(wNs, 'w:tab');
+      tabRun.appendChild(tabEl);
+      p.appendChild(tabRun);
+    } else {
+      // Inline separator
+      const sep2 = createStyledRun(xmlDoc, wNs, '  |  ', sepBase, { removeBold: true, removeUnderline: true });
+      p.appendChild(sep2);
+    }
+    
+    // Link text with hyperlink styling
+    const linkBase = styles.linkRPr || sepBase;
+    const linkText = createStyledRun(xmlDoc, wNs, links.join(' | '), linkBase, { italic: true, color: '0563C1' });
     p.appendChild(linkText);
-    const sep2 = createStyledRun(xmlDoc, wNs, '  |  ', sepRPr, {});
-    p.appendChild(sep2);
   }
-  
-  // Italic run: Tech Stack (using cloned tech run properties)
-  const techText = (project.techStack || []).join(', ');
-  const techRun = createStyledRun(xmlDoc, wNs, techText, styles.techRPr, { italic: true });
-  p.appendChild(techRun);
   
   return p;
 }
 
 /**
  * Create a bullet point paragraph cloning the existing resume's bullet style.
+ * Supports bold lead-in phrase matching if detected in the uploaded resume.
  */
 function createStyledBulletParagraph(xmlDoc, wNs, bulletText, styles) {
   const p = xmlDoc.createElementNS(wNs, 'w:p');
   
   // Use existing bullet paragraph properties or create default
   if (styles.bulletPPr) {
-    const clonedPPr = styles.bulletPPr.cloneNode(true);
-    p.appendChild(clonedPPr);
+    p.appendChild(styles.bulletPPr.cloneNode(true));
   } else {
-    // Fallback: default bullet formatting
     const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
     const ind = xmlDoc.createElementNS(wNs, 'w:ind');
     ind.setAttribute('w:left', '360');
@@ -333,17 +389,65 @@ function createStyledBulletParagraph(xmlDoc, wNs, bulletText, styles) {
     p.appendChild(pPr);
   }
   
-  // If bullets use Word numbering (numPr), the bullet char is auto-generated
-  // If they use a character prefix, prepend it
+  // Determine bullet prefix
   const prefix = (!styles.bulletNumPr && (styles.hasBulletChar || !styles.bulletPPr)) 
     ? `${styles.bulletChar || '•'} ` 
     : '';
   
-  const textContent = `${prefix}${bulletText}`;
-  const bulletRun = createStyledRun(xmlDoc, wNs, textContent, styles.bulletRPr, {});
-  p.appendChild(bulletRun);
+  // If the uploaded resume uses bold lead-ins in its bullets
+  if (styles.bulletBoldRPr) {
+    const { leadIn, rest } = splitBulletLeadIn(bulletText);
+    
+    // Lead-in run (bold style)
+    const leadRun = createStyledRun(xmlDoc, wNs, `${prefix}${leadIn}`, styles.bulletBoldRPr, { bold: true });
+    p.appendChild(leadRun);
+    
+    // Rest of sentence (regular non-bold style)
+    if (rest) {
+      const restRun = createStyledRun(xmlDoc, wNs, rest, styles.bulletRPr, { removeBold: true });
+      p.appendChild(restRun);
+    }
+  } else {
+    // Resume uses uniform non-bold bullets
+    const bodyRPr = styles.bulletRPr;
+    const bulletRun = createStyledRun(xmlDoc, wNs, `${prefix}${bulletText}`, bodyRPr, { removeBold: true });
+    p.appendChild(bulletRun);
+  }
   
   return p;
+}
+
+/**
+ * Split a bullet point sentence into a lead-in phrase (to bold) and the rest.
+ */
+function splitBulletLeadIn(bulletText) {
+  const lower = bulletText.toLowerCase();
+  const keywords = [' using ', ' with ', ' by ', ' via ', ' leveraging ', ' that ', ' to ', ', '];
+  let minIdx = -1;
+  
+  for (const kw of keywords) {
+    const idx = lower.indexOf(kw);
+    if (idx > 10 && (minIdx === -1 || idx < minIdx)) {
+      minIdx = idx;
+    }
+  }
+  
+  if (minIdx !== -1) {
+    return {
+      leadIn: bulletText.slice(0, minIdx).trim(),
+      rest: bulletText.slice(minIdx)
+    };
+  }
+  
+  // Fallback: first 4 words
+  const words = bulletText.split(/\s+/);
+  if (words.length > 5) {
+    const leadIn = words.slice(0, 4).join(' ');
+    const rest = ' ' + words.slice(4).join(' ');
+    return { leadIn, rest };
+  }
+  
+  return { leadIn: bulletText, rest: '' };
 }
 
 /**
@@ -353,7 +457,6 @@ function createStyledBulletParagraph(xmlDoc, wNs, bulletText, styles) {
 function createStyledRun(xmlDoc, wNs, text, baseRPr, overrides = {}) {
   const r = xmlDoc.createElementNS(wNs, 'w:r');
   
-  // Start with cloned base properties or create new
   let rPr;
   if (baseRPr) {
     rPr = baseRPr.cloneNode(true);
@@ -362,18 +465,35 @@ function createStyledRun(xmlDoc, wNs, text, baseRPr, overrides = {}) {
   }
   
   // Apply overrides
-  if (overrides.bold) {
+  if (overrides.removeBold) {
+    const bEl = rPr.getElementsByTagNameNS(wNs, 'b')[0];
+    if (bEl) rPr.removeChild(bEl);
+    const bCsEl = rPr.getElementsByTagNameNS(wNs, 'bCs')[0];
+    if (bCsEl) rPr.removeChild(bCsEl);
+  } else if (overrides.bold) {
     if (!rPr.getElementsByTagNameNS(wNs, 'b')[0]) {
       rPr.appendChild(xmlDoc.createElementNS(wNs, 'w:b'));
     }
   }
+
+  if (overrides.removeUnderline) {
+    const uEl = rPr.getElementsByTagNameNS(wNs, 'u')[0];
+    if (uEl) rPr.removeChild(uEl);
+  } else if (overrides.underline) {
+    if (!rPr.getElementsByTagNameNS(wNs, 'u')[0]) {
+      const u = xmlDoc.createElementNS(wNs, 'w:u');
+      u.setAttribute('w:val', 'single');
+      rPr.appendChild(u);
+    }
+  }
+  
   if (overrides.italic) {
     if (!rPr.getElementsByTagNameNS(wNs, 'i')[0]) {
       rPr.appendChild(xmlDoc.createElementNS(wNs, 'w:i'));
     }
   }
+  
   if (overrides.color) {
-    // Remove existing color if any, then add new
     const existingColor = rPr.getElementsByTagNameNS(wNs, 'color')[0];
     if (existingColor) rPr.removeChild(existingColor);
     const color = xmlDoc.createElementNS(wNs, 'w:color');
@@ -381,12 +501,10 @@ function createStyledRun(xmlDoc, wNs, text, baseRPr, overrides = {}) {
     rPr.appendChild(color);
   }
   
-  // Only add rPr if it has children
   if (rPr.childNodes.length > 0 || rPr.attributes.length > 0) {
     r.appendChild(rPr);
   }
   
-  // Text element
   const t = xmlDoc.createElementNS(wNs, 'w:t');
   t.setAttribute('xml:space', 'preserve');
   t.textContent = text;
@@ -396,6 +514,15 @@ function createStyledRun(xmlDoc, wNs, text, baseRPr, overrides = {}) {
 }
 
 // ─── Helper Functions ────────────────────────────────────────
+
+function getRunText(run, wNs) {
+  const tElements = run.getElementsByTagNameNS(wNs, 't');
+  let text = '';
+  for (const t of tElements) {
+    text += t.textContent || '';
+  }
+  return text;
+}
 
 function getParagraphText(para, wNs) {
   const runs = para.getElementsByTagNameNS(wNs, 'r');
