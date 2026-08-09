@@ -289,7 +289,10 @@ export default function RepoSelector({
                     </span>
                   )}
 
-                  {repo.detected_deps?.slice(0, 3).map(dep => (
+                  {repo.detected_deps
+                    ?.filter(dep => dep !== repo.language)
+                    .slice(0, 4)
+                    .map(dep => (
                     <span key={dep} className="badge" style={{ fontSize: '0.68rem' }}>
                       {dep}
                     </span>

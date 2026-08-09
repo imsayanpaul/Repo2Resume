@@ -167,8 +167,12 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
   const starsText = repo.stargazers_count > 10 ? `, garnering ${repo.stargazers_count}+ stars on GitHub` : '';
   const desc = (repo.description || '').toLowerCase();
   
-  // Try to extract what the project actually does from description
+  // Extract what the project actually does from description
   const projectPurpose = extractProjectPurpose(repo);
+  const featureHighlights = extractFeatureHighlights(repo);
+  
+  // Pick varied action verbs per project (deterministic based on repo name)
+  const verbs = pickVerbSet(repo.name);
   
   // Highlight JD keywords if matching
   const matchingJd = jdKeywords.filter(k => 
@@ -180,38 +184,65 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
 
   if (tone === 'xyz') {
     return [
-      `Architected and deployed ${name}, ${projectPurpose}, leveraging ${techStack}${jdHighlight}${starsText}.`,
-      `Engineered ${getArchitectureDetail(repo)} using ${repo.language}, ${getPerformanceMetric(repo)} and ensuring robust error handling across all user-facing workflows.`,
-      `Implemented ${getInfraDetail(repo)}, ${getQualityMetric(repo)} to maintain production-grade reliability and developer velocity.`
+      `${verbs.lead} ${name}, ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''}, leveraging ${techStack}${jdHighlight}${starsText}.`,
+      `${verbs.mid} ${getArchitectureDetail(repo)} using ${repo.language}, ${getPerformanceMetric(repo)} and ensuring robust error handling across all user-facing workflows.`,
+      `${verbs.tail} ${getInfraDetail(repo)}, ${getQualityMetric(repo)} to maintain production-grade reliability and developer velocity.`
     ];
   }
 
   if (tone === 'star') {
     return [
-      `Identified a need for ${getProjectNeed(repo)}; designed and built ${name} using ${techStack} to ${getProjectOutcome(repo)}${starsText}.`,
-      `Developed ${getArchitectureDetail(repo)} with ${repo.language}, ${getPerformanceMetric(repo)} and enabling seamless end-to-end user workflows.`,
-      `Established ${getInfraDetail(repo)} and automated quality gates, ${getQualityMetric(repo)} during active development iterations.`
+      `Identified a need for ${getProjectNeed(repo)}; ${verbs.lead.toLowerCase()} ${name} using ${techStack} — ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''}${starsText}.`,
+      `${verbs.mid} ${getArchitectureDetail(repo)} with ${repo.language}, ${getPerformanceMetric(repo)} and enabling seamless end-to-end user workflows.`,
+      `${verbs.tail} ${getInfraDetail(repo)} and automated quality gates, ${getQualityMetric(repo)} during active development iterations.`
     ];
   }
 
   if (tone === 'technical') {
     return [
-      `Constructed ${name}${jdHighlight} — ${projectPurpose} — using ${techStack}, adhering to clean architecture principles and SOLID design patterns.`,
-      `Optimized ${getTechnicalOptimization(repo)}, ${getTechnicalMetric(repo)} for critical user-facing operations.`,
-      `Configured ${getInfraDetail(repo)}, comprehensive API documentation, and structured developer onboarding guides for open-source scalability.`
+      `${verbs.lead} ${name}${jdHighlight} — ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''} — using ${techStack}, adhering to clean architecture principles and SOLID design patterns.`,
+      `${verbs.mid} ${getTechnicalOptimization(repo)}, ${getTechnicalMetric(repo)} for critical user-facing operations.`,
+      `${verbs.tail} ${getInfraDetail(repo)}, comprehensive API documentation, and structured developer onboarding guides for open-source scalability.`
     ];
   }
 
   // Default ATS Minimalist
   return [
-    `Developed ${name} using ${techStack} — ${projectPurpose}${starsText}.`,
-    `Integrated ${getArchitectureDetail(repo)} with ${repo.language}, ${getPerformanceMetric(repo)}.`,
-    `Maintained ${getInfraDetail(repo)}, dependency tracking, and automated test suites to ensure production-grade reliability.`
+    `${verbs.lead} ${name} using ${techStack} — ${projectPurpose}${featureHighlights ? `; ${featureHighlights}` : ''}${starsText}.`,
+    `${verbs.mid} ${getArchitectureDetail(repo)} with ${repo.language}, ${getPerformanceMetric(repo)}.`,
+    `${verbs.tail} ${getInfraDetail(repo)}, dependency tracking, and automated test suites to ensure production-grade reliability.`
   ];
 }
 
 /**
- * Extract a meaningful project purpose from repo metadata
+ * Pick varied action verb sets per project using a deterministic hash
+ * so each project gets different starters while staying stable across regenerations.
+ */
+function pickVerbSet(repoName) {
+  // Verb sets: [lead bullet, mid bullet, tail bullet]
+  const verbSets = [
+    { lead: 'Architected and deployed', mid: 'Engineered', tail: 'Implemented' },
+    { lead: 'Designed and built', mid: 'Developed', tail: 'Integrated' },
+    { lead: 'Built and shipped', mid: 'Optimized', tail: 'Established' },
+    { lead: 'Spearheaded development of', mid: 'Constructed', tail: 'Deployed' },
+    { lead: 'Created and launched', mid: 'Streamlined', tail: 'Configured' },
+    { lead: 'Developed and delivered', mid: 'Programmed', tail: 'Orchestrated' },
+    { lead: 'Pioneered and released', mid: 'Crafted', tail: 'Automated' },
+  ];
+  
+  // Simple deterministic hash from repo name
+  let hash = 0;
+  for (let i = 0; i < repoName.length; i++) {
+    hash = ((hash << 5) - hash) + repoName.charCodeAt(i);
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  
+  return verbSets[Math.abs(hash) % verbSets.length];
+}
+
+/**
+ * Extract a meaningful project purpose from repo metadata.
+ * Strips repo name prefix and converts to resume-worthy phrasing.
  */
 function extractProjectPurpose(repo) {
   const desc = (repo.description || '').trim();
@@ -224,28 +255,111 @@ function extractProjectPurpose(repo) {
     return `a ${repo.language || 'full-stack'} application with modular architecture and responsive user interface`;
   }
   
-  // Clean and rephrase the description into resume-worthy language
+  // Clean the description
   let cleaned = desc
     .replace(/:[a-z0-9_+-]+:/gi, '')  // Remove GitHub emoji shortcodes
     .replace(/[!]{2,}/g, '')           // Remove excessive exclamation marks
-    .replace(/^\s*(a|an|the)\s+/i, '') // Remove leading articles
     .trim();
   
-  // If description is short enough, use directly with "a/an" prefix
-  if (cleaned.length < 120) {
-    const vowels = 'aeiou';
-    const article = vowels.includes(cleaned[0]?.toLowerCase()) ? 'an' : 'a';
-    // Lowercase the first letter for embedding in sentence
-    cleaned = cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
-    // Remove trailing period if present
-    cleaned = cleaned.replace(/\.\s*$/, '');
-    return `${article} ${cleaned}`;
+  // Strip repo name prefix patterns like "Appliqa: ...", "Appliqa - ...", "Appliqa — ..."
+  const repoName = repo.name.toLowerCase().replace(/[-_]/g, '');
+  const prefixPatterns = [
+    new RegExp(`^${repo.name}\\s*[:–—-]\\s*`, 'i'),
+    new RegExp(`^${repoName}\\s*[:–—-]\\s*`, 'i'),
+    new RegExp(`^${formatRepoName(repo.name)}\\s*[:–—-]\\s*`, 'i'),
+  ];
+  for (const pattern of prefixPatterns) {
+    cleaned = cleaned.replace(pattern, '');
   }
   
-  // For long descriptions, take first sentence
-  const firstSentence = cleaned.split(/[.!]/)[0].trim();
-  const article = 'aeiou'.includes(firstSentence[0]?.toLowerCase()) ? 'an' : 'a';
-  return `${article} ${firstSentence.charAt(0).toLowerCase()}${firstSentence.slice(1)}`;
+  // Remove leading articles
+  cleaned = cleaned.replace(/^\s*(a|an|the)\s+/i, '').trim();
+  
+  // Remove trailing period
+  cleaned = cleaned.replace(/\.\s*$/, '');
+  
+  if (!cleaned) {
+    return `a ${repo.language || 'full-stack'} application with modular architecture`;
+  }
+  
+  // For long descriptions, take the first clause/sentence as the core purpose
+  let purpose = cleaned;
+  if (purpose.length > 100) {
+    // Split on sentence-ending or feature-listing delimiters
+    const firstPart = purpose.split(/[.!;]/)[0].trim();
+    if (firstPart.length > 20) {
+      purpose = firstPart;
+    }
+  }
+  
+  // Lowercase first letter for embedding in sentence
+  purpose = purpose.charAt(0).toLowerCase() + purpose.slice(1);
+  
+  // Add appropriate article
+  const vowels = 'aeiou';
+  const article = vowels.includes(purpose[0]?.toLowerCase()) ? 'an' : 'a';
+  
+  return `${article} ${purpose}`;
+}
+
+/**
+ * Extract specific feature highlights from the description.
+ * Returns a string like "scans resumes, auto-generates cover letters, and tracks applications"
+ */
+function extractFeatureHighlights(repo) {
+  const desc = (repo.description || '').trim();
+  if (!desc || desc.length < 40) return '';
+  
+  // Look for feature keywords in the description
+  const featureVerbs = [
+    'scan', 'generate', 'auto-generate', 'track', 'manage', 'optimize',
+    'analyze', 'visualize', 'monitor', 'automate', 'match', 'convert',
+    'build', 'create', 'deploy', 'process', 'stream', 'search',
+    'detect', 'recommend', 'schedule', 'sync', 'export', 'import',
+    'paste', 'copy', 'filter', 'sort', 'scrape', 'crawl', 'fetch',
+    'predict', 'classify', 'train', 'embed', 'index', 'cache',
+    'authenticate', 'authorize', 'encrypt', 'validate', 'test',
+    'render', 'compile', 'transform', 'parse', 'format',
+    'support', 'feature', 'provide', 'offer', 'enable', 'allow'
+  ];
+  
+  // Extract features from comma-separated or "and"-separated lists in description
+  const descLower = desc.toLowerCase();
+  
+  // Look for patterns like "Features X, Y, and Z" or "supports X, Y, Z"
+  const featureListMatch = descLower.match(/(?:features?|supports?|includes?|provides?|offers?|enables?)\s+(.+)/i);
+  if (featureListMatch) {
+    const featureText = featureListMatch[1]
+      .replace(/\.\s*$/, '')  // Remove trailing period
+      .replace(/,\s*and\s+/g, ', ')  // Normalize "X, and Y" to "X, Y"
+      .split(/,\s*/)
+      .filter(f => f.trim().length > 3 && f.trim().length < 60)
+      .slice(0, 4);
+    
+    if (featureText.length >= 2) {
+      const last = featureText.pop();
+      return `${featureText.join(', ')}, and ${last}`;
+    }
+  }
+  
+  // For descriptions with multiple sentences/clauses, extract action phrases
+  const clauses = desc
+    .replace(/:[a-z0-9_+-]+:/gi, '')
+    .split(/[,;.]/)
+    .map(c => c.trim().toLowerCase())
+    .filter(c => c.length > 10 && featureVerbs.some(v => c.includes(v)));
+  
+  if (clauses.length >= 2) {
+    const highlights = clauses
+      .slice(0, 3)
+      .map(c => c.replace(/^\s*(and|or|also|with)\s+/i, '').trim());
+    if (highlights.length >= 2) {
+      const last = highlights.pop();
+      return `${highlights.join(', ')}, and ${last}`;
+    }
+  }
+  
+  return '';
 }
 
 /**
@@ -332,3 +446,4 @@ function formatRepoName(raw) {
     .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
 }
+
