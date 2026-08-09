@@ -165,7 +165,20 @@ export default function SettingsModal({
               <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: '1.45', marginBottom: '8px' }}>
                 For complete peace of mind, clone this open-source project directly from GitHub, inspect every line of code, and run it locally on your machine with your own API keys:
               </p>
-              <div className="font-mono" style={{ background: '#0a0a0c', border: '1px solid var(--border-muted)', borderRadius: '6px', padding: '8px 12px', fontSize: '0.74rem', color: '#f4f4f5', lineHeight: '1.6' }}>
+              <div className="font-mono" style={{ 
+                background: '#0a0a0c', 
+                border: '1px solid var(--border-muted)', 
+                borderRadius: '6px', 
+                padding: '8px 12px', 
+                fontSize: '0.74rem', 
+                color: '#f4f4f5', 
+                lineHeight: '1.6',
+                wordBreak: 'break-all',
+                overflowWrap: 'anywhere',
+                overflowX: 'auto',
+                maxWidth: '100%',
+                boxSizing: 'border-box'
+              }}>
                 git clone https://github.com/imsayanpaul/Repo2Resume.git<br/>
                 cd Repo2Resume && npm install<br/>
                 npm run dev
