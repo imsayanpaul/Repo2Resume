@@ -304,34 +304,22 @@ function extractProjectPurpose(repo) {
 
 /**
  * Extract specific feature highlights from the description.
+ * Only returns content when there's a CLEAR enumerated feature list to avoid
+ * duplicating the project purpose text.
  * Returns a string like "scans resumes, auto-generates cover letters, and tracks applications"
  */
 function extractFeatureHighlights(repo) {
   const desc = (repo.description || '').trim();
-  if (!desc || desc.length < 40) return '';
+  if (!desc || desc.length < 60) return '';
   
-  // Look for feature keywords in the description
-  const featureVerbs = [
-    'scan', 'generate', 'auto-generate', 'track', 'manage', 'optimize',
-    'analyze', 'visualize', 'monitor', 'automate', 'match', 'convert',
-    'build', 'create', 'deploy', 'process', 'stream', 'search',
-    'detect', 'recommend', 'schedule', 'sync', 'export', 'import',
-    'paste', 'copy', 'filter', 'sort', 'scrape', 'crawl', 'fetch',
-    'predict', 'classify', 'train', 'embed', 'index', 'cache',
-    'authenticate', 'authorize', 'encrypt', 'validate', 'test',
-    'render', 'compile', 'transform', 'parse', 'format',
-    'support', 'feature', 'provide', 'offer', 'enable', 'allow'
-  ];
-  
-  // Extract features from comma-separated or "and"-separated lists in description
   const descLower = desc.toLowerCase();
   
-  // Look for patterns like "Features X, Y, and Z" or "supports X, Y, Z"
+  // Only match explicit feature list patterns like "Features X, Y, and Z"
   const featureListMatch = descLower.match(/(?:features?|supports?|includes?|provides?|offers?|enables?)\s+(.+)/i);
   if (featureListMatch) {
     const featureText = featureListMatch[1]
-      .replace(/\.\s*$/, '')  // Remove trailing period
-      .replace(/,\s*and\s+/g, ', ')  // Normalize "X, and Y" to "X, Y"
+      .replace(/\.\s*$/, '')
+      .replace(/,\s*and\s+/g, ', ')
       .split(/,\s*/)
       .filter(f => f.trim().length > 3 && f.trim().length < 60)
       .slice(0, 4);
@@ -342,23 +330,7 @@ function extractFeatureHighlights(repo) {
     }
   }
   
-  // For descriptions with multiple sentences/clauses, extract action phrases
-  const clauses = desc
-    .replace(/:[a-z0-9_+-]+:/gi, '')
-    .split(/[,;.]/)
-    .map(c => c.trim().toLowerCase())
-    .filter(c => c.length > 10 && featureVerbs.some(v => c.includes(v)));
-  
-  if (clauses.length >= 2) {
-    const highlights = clauses
-      .slice(0, 3)
-      .map(c => c.replace(/^\s*(and|or|also|with)\s+/i, '').trim());
-    if (highlights.length >= 2) {
-      const last = highlights.pop();
-      return `${highlights.join(', ')}, and ${last}`;
-    }
-  }
-  
+  // No clear feature list found — return empty to avoid duplicating the purpose
   return '';
 }
 

@@ -114,14 +114,20 @@ function findProjectsSectionBoundary(paragraphs, wNs) {
   let nextSectionIndex = -1;
   
   for (let i = 0; i < paragraphs.length; i++) {
-    const text = getParagraphText(paragraphs[i], wNs).trim().toLowerCase();
+    const rawText = getParagraphText(paragraphs[i], wNs).trim();
+    // Strip all non-letter characters for matching (handles "PROJECTS/", "PROJECTS:", etc.)
+    const cleanText = rawText.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
     const isHeadingStyle = isHeading(paragraphs[i], wNs);
+    const isAllCaps = rawText.length > 2 && rawText === rawText.toUpperCase();
+    const isBold = isBoldParagraph(paragraphs[i], wNs);
+    const hasShading = hasParagraphShading(paragraphs[i], wNs);
     
     // Look for the Projects heading
     if (projectHeadingIndex === -1) {
-      if (PROJECT_HEADINGS.some(h => text === h || text.startsWith(h))) {
-        // Verify it looks like a heading (styled heading, all-caps, or bold with specific text)
-        if (isHeadingStyle || text === text.toUpperCase() || isBoldParagraph(paragraphs[i], wNs)) {
+      if (cleanText && PROJECT_HEADINGS.some(h => cleanText === h || cleanText.startsWith(h + ' '))) {
+        // Accept if it looks like ANY kind of heading: styled, all-caps, bold, shaded, or just exact text match
+        if (isHeadingStyle || isAllCaps || isBold || hasShading || 
+            PROJECT_HEADINGS.includes(cleanText)) {
           projectHeadingIndex = i;
         }
       }
@@ -130,18 +136,12 @@ function findProjectsSectionBoundary(paragraphs, wNs) {
     
     // After finding the Projects heading, look for the next major section heading
     if (projectHeadingIndex !== -1 && nextSectionIndex === -1) {
-      // Check if this paragraph is a new section heading
-      const cleanText = text.replace(/[^a-z\s]/g, '').trim();
-      if (cleanText && SECTION_HEADINGS.some(h => cleanText === h) && 
-          (isHeadingStyle || cleanText === cleanText.toUpperCase() || isBoldParagraph(paragraphs[i], wNs)) &&
-          i > projectHeadingIndex + 1) {
-        // Also check the original text for all-caps
-        const origText = getParagraphText(paragraphs[i], wNs).trim();
-        const isAllCaps = origText === origText.toUpperCase() && origText.length > 2;
-        if (isHeadingStyle || isAllCaps || isBoldParagraph(paragraphs[i], wNs)) {
-          nextSectionIndex = i;
-          break;
-        }
+      if (!cleanText || i <= projectHeadingIndex + 1) continue;
+      
+      const isNextSection = SECTION_HEADINGS.some(h => cleanText === h) && cleanText !== 'projects';
+      if (isNextSection && (isHeadingStyle || isAllCaps || isBold || hasShading)) {
+        nextSectionIndex = i;
+        break;
       }
     }
   }
@@ -212,6 +212,24 @@ function isBoldParagraph(para, wNs) {
     if (!bold) { allBold = false; break; }
   }
   return allBold;
+}
+
+/**
+ * Check if a paragraph has shading/background color (common in resume section headings)
+ */
+function hasParagraphShading(para, wNs) {
+  const pPr = para.getElementsByTagNameNS(wNs, 'pPr')[0];
+  if (!pPr) return false;
+  const shd = pPr.getElementsByTagNameNS(wNs, 'shd')[0];
+  if (shd) {
+    const fill = shd.getAttribute('w:fill');
+    // Has a non-white, non-auto fill color
+    if (fill && fill !== 'auto' && fill.toLowerCase() !== 'ffffff') return true;
+  }
+  // Check for paragraph borders (another heading indicator)
+  const pBdr = pPr.getElementsByTagNameNS(wNs, 'pBdr')[0];
+  if (pBdr) return true;
+  return false;
 }
 
 /**
