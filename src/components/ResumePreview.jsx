@@ -197,12 +197,23 @@ export default function ResumePreview({
       return;
     }
     setUploadedDocx({ file, name: file.name });
-    setInjectStatus(null);
-    setInjectError('');
+    if (generatedBullets.length === 0) {
+      setInjectStatus('info');
+      setInjectError('');
+    } else {
+      setInjectStatus(null);
+      setInjectError('');
+    }
   };
 
   const handleInjectIntoResume = async () => {
-    if (!uploadedDocx || generatedBullets.length === 0) return;
+    if (!uploadedDocx) return;
+    if (generatedBullets.length === 0) {
+      setInjectError('Please generate resume bullets first! Select repositories on the left and click "Generate Resume Bullets".');
+      setInjectStatus('error');
+      return;
+    }
+    
     setIsInjecting(true);
     setInjectStatus(null);
     setInjectError('');
@@ -332,7 +343,7 @@ export default function ResumePreview({
               type="button"
               className="btn btn-sm btn-ghost"
               onClick={() => docxInputRef.current?.click()}
-              disabled={generatedBullets.length === 0 || isGenerating}
+              disabled={isGenerating}
               title="Upload your existing resume (.docx) to inject projects into it"
               style={{ height: '32px', fontSize: '0.78rem', padding: '0 10px', gap: '5px' }}
             >
@@ -344,7 +355,7 @@ export default function ResumePreview({
                 type="button"
                 className={`btn btn-sm ${injectStatus === 'success' ? 'btn-secondary' : 'btn-primary'}`}
                 onClick={handleInjectIntoResume}
-                disabled={isInjecting || generatedBullets.length === 0}
+                disabled={isInjecting}
                 title={`Inject projects into ${uploadedDocx.name}`}
                 style={{
                   height: '32px',
@@ -420,6 +431,7 @@ export default function ResumePreview({
           <span style={{ lineHeight: '1.4' }}>
             {injectStatus === 'error' ? injectError : 
              injectStatus === 'success' ? `Projects injected and downloaded successfully!` :
+             generatedBullets.length === 0 ? <>Resume loaded: <strong style={{ color: '#ffffff' }}>{uploadedDocx.name}</strong> — select repos on the left and click "Generate Resume Bullets" to inject!</> :
              <>Resume loaded: <strong style={{ color: '#ffffff' }}>{uploadedDocx.name}</strong> — click "Inject into Resume" to add projects</>
             }
           </span>
