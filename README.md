@@ -43,7 +43,15 @@ Instantly convert your public GitHub projects into high-impact, ATS-optimized bu
 
 ---
 
-### 📄 4. Multi-Format 1-Click Exporters
+### 📑 4. Word Resume Upload (`.docx`) & Automatic Project Injection
+- **Upload Existing Resume**: Upload your existing `.docx` Word resume directly into the workspace.
+- **Smart Section Detection**: Automatically locates your resume's `PROJECTS` or `PROJECT EXPERIENCE` section, handling multi-word headings (`LEADERSHIP EXPERIENCE`, `HONORS & INVOLVEMENT`), custom shading, and underline borders.
+- **Auto-Formatting & Style Cloning**: Analyzes and clones your existing resume's typography (font family, size, bold lead-in action phrases, italic tech stacks, bullet indentation, and tab-stopped right-aligned links).
+- **Instant 1-Click Injection**: Injects newly generated GitHub project bullets directly into your `PROJECTS` section with professional 12pt spacing, and downloads the updated `.docx` file.
+
+---
+
+### 📄 5. Multi-Format 1-Click Exporters
 - **Rich Formatted Cards**: 1-click rich text copy for Microsoft Word and Google Docs with formatting intact.
 - **LaTeX / Overleaf**: Ready-to-compile `\resumeProjectHeading` code for popular developer templates (*Jake's Resume*).
 - **Markdown (`RESUME.md`)**: Clean markdown formatted for GitHub Profile READMEs or portfolio sites.
@@ -51,7 +59,7 @@ Instantly convert your public GitHub projects into high-impact, ATS-optimized bu
 
 ---
 
-### 🪄 5. Regenerate with Specific Request (Magic Wand)
+### 🪄 6. Regenerate with Specific Request (Magic Wand)
 - Custom AI prompt bar allowing custom instructions (*"Focus heavily on microservices and AWS deployment"*).
 - Includes 1-click text suggestion chips:
   - *Emphasize 40% speedup & quantitative metrics*
@@ -61,7 +69,7 @@ Instantly convert your public GitHub projects into high-impact, ATS-optimized bu
 
 ---
 
-### 🔒 6. 100% Client-Side Privacy & Offline Capability
+### 🔒 7. 100% Client-Side Privacy & Offline Capability
 - Stores API keys strictly in your browser's `localStorage`—never logged, tracked, or sent to middleman backend servers.
 - **Smart Rule Engine**: Generates Google XYZ bullet points locally even without an internet connection or AI key.
 
