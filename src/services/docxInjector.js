@@ -2,8 +2,8 @@
  * DOCX Resume Injector Service
  * 
  * Reads an existing .docx resume, finds the "Projects" section,
- * and injects generated project bullets below existing projects.
- * Uses JSZip to manipulate the raw OOXML inside the .docx file.
+ * analyzes existing project formatting, and injects generated project
+ * bullets matching the same style. Uses JSZip for raw OOXML manipulation.
  */
 import JSZip from 'jszip';
 
@@ -22,7 +22,7 @@ const SECTION_HEADINGS = [
   'achievements', 'publications', 'interests', 'activities',
   'extracurricular', 'volunteer', 'references', 'summary', 'objective',
   'languages', 'courses', 'coursework', 'leadership', 'involvement',
-  'projects' // projects itself, to handle edge cases
+  'projects'
 ];
 
 /**
@@ -36,25 +36,20 @@ export async function injectProjectsIntoDocx(docxFile, projectEntries, linkConfi
   const arrayBuffer = await docxFile.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
   
-  // Read the main document XML
   const documentXmlStr = await zip.file('word/document.xml').async('string');
-  
-  // Parse as XML DOM
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(documentXmlStr, 'application/xml');
   
-  // Find namespaces
   const nsResolver = createNamespaceResolver(xmlDoc);
   const wNs = nsResolver('w') || 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   
-  // Get all paragraphs
   const body = xmlDoc.getElementsByTagNameNS(wNs, 'body')[0];
   if (!body) throw new Error('Could not parse document structure. Is this a valid .docx file?');
   
   const paragraphs = Array.from(body.getElementsByTagNameNS(wNs, 'p'));
   
   // Find the Projects section boundaries
-  const { insertionPoint, found } = findProjectsSectionBoundary(paragraphs, wNs);
+  const { insertionPoint, found, projectHeadingIdx, nextSectionIdx } = findProjectsSectionBoundary(paragraphs, wNs);
   
   if (!found) {
     throw new Error(
@@ -63,23 +58,21 @@ export async function injectProjectsIntoDocx(docxFile, projectEntries, linkConfi
     );
   }
   
-  // Generate OOXML paragraph nodes for each project
-  const newNodes = generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs);
+  // Analyze existing project formatting from the resume
+  const existingStyles = extractExistingProjectStyles(paragraphs, wNs, projectHeadingIdx, nextSectionIdx);
+  
+  // Generate OOXML paragraph nodes matching existing formatting
+  const newNodes = generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, existingStyles);
   
   // Insert the new nodes at the insertion point
-  const referenceNode = insertionPoint;
   for (const node of newNodes) {
-    body.insertBefore(node, referenceNode);
+    body.insertBefore(node, insertionPoint);
   }
   
-  // Serialize back to XML string
   const serializer = new XMLSerializer();
   const modifiedXml = serializer.serializeToString(xmlDoc);
-  
-  // Replace in zip
   zip.file('word/document.xml', modifiedXml);
   
-  // Generate the modified .docx blob
   const modifiedBlob = await zip.generateAsync({
     type: 'blob',
     mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -88,80 +81,322 @@ export async function injectProjectsIntoDocx(docxFile, projectEntries, linkConfi
   return modifiedBlob;
 }
 
-/**
- * Extract a namespace resolver from the document root
- */
 function createNamespaceResolver(xmlDoc) {
   const root = xmlDoc.documentElement;
   return (prefix) => {
     const nsMap = {
       'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
       'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-      'wp': 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'
     };
-    // Also check attributes
     const attr = root.getAttribute(`xmlns:${prefix}`);
     return attr || nsMap[prefix] || null;
   };
 }
 
 /**
- * Find the boundary of the Projects section in the document.
- * Returns the paragraph node AFTER which new projects should be inserted.
+ * Find the boundary of the Projects section.
+ * Returns heading index, next section index, and insertion point node.
  */
 function findProjectsSectionBoundary(paragraphs, wNs) {
-  let projectHeadingIndex = -1;
-  let nextSectionIndex = -1;
+  let projectHeadingIdx = -1;
+  let nextSectionIdx = -1;
   
   for (let i = 0; i < paragraphs.length; i++) {
     const rawText = getParagraphText(paragraphs[i], wNs).trim();
-    // Strip all non-letter characters for matching (handles "PROJECTS/", "PROJECTS:", etc.)
     const cleanText = rawText.replace(/[^a-zA-Z\s]/g, '').trim().toLowerCase();
     const isHeadingStyle = isHeading(paragraphs[i], wNs);
     const isAllCaps = rawText.length > 2 && rawText === rawText.toUpperCase();
     const isBold = isBoldParagraph(paragraphs[i], wNs);
     const hasShading = hasParagraphShading(paragraphs[i], wNs);
     
-    // Look for the Projects heading
-    if (projectHeadingIndex === -1) {
+    if (projectHeadingIdx === -1) {
       if (cleanText && PROJECT_HEADINGS.some(h => cleanText === h || cleanText.startsWith(h + ' '))) {
-        // Accept if it looks like ANY kind of heading: styled, all-caps, bold, shaded, or just exact text match
-        if (isHeadingStyle || isAllCaps || isBold || hasShading || 
-            PROJECT_HEADINGS.includes(cleanText)) {
-          projectHeadingIndex = i;
+        if (isHeadingStyle || isAllCaps || isBold || hasShading || PROJECT_HEADINGS.includes(cleanText)) {
+          projectHeadingIdx = i;
         }
       }
       continue;
     }
     
-    // After finding the Projects heading, look for the next major section heading
-    if (projectHeadingIndex !== -1 && nextSectionIndex === -1) {
-      if (!cleanText || i <= projectHeadingIndex + 1) continue;
-      
+    if (projectHeadingIdx !== -1 && nextSectionIdx === -1) {
+      if (!cleanText || i <= projectHeadingIdx + 1) continue;
       const isNextSection = SECTION_HEADINGS.some(h => cleanText === h) && cleanText !== 'projects';
       if (isNextSection && (isHeadingStyle || isAllCaps || isBold || hasShading)) {
-        nextSectionIndex = i;
+        nextSectionIdx = i;
         break;
       }
     }
   }
   
-  if (projectHeadingIndex === -1) {
-    return { insertionPoint: null, found: false };
+  if (projectHeadingIdx === -1) {
+    return { insertionPoint: null, found: false, projectHeadingIdx: -1, nextSectionIdx: -1 };
   }
   
-  // If we found the next section, insert before it
-  // If not, insert at the end of the document body
-  const insertionPoint = nextSectionIndex !== -1 
-    ? paragraphs[nextSectionIndex]
-    : null; // null = append at end
-  
-  return { insertionPoint, found: true };
+  const insertionPoint = nextSectionIdx !== -1 ? paragraphs[nextSectionIdx] : null;
+  return { insertionPoint, found: true, projectHeadingIdx, nextSectionIdx };
 }
 
 /**
- * Extract plain text from a paragraph element
+ * Analyze existing projects in the resume to extract their formatting.
+ * Scans paragraphs between the Projects heading and the next section
+ * to find title paragraphs and bullet paragraphs, then clones their styles.
  */
+function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionIdx) {
+  const endIdx = nextSectionIdx !== -1 ? nextSectionIdx : paragraphs.length;
+  const sectionParagraphs = paragraphs.slice(headingIdx + 1, endIdx);
+  
+  let titlePPr = null;   // Paragraph properties for title line
+  let titleRPr = null;   // Run properties for title name (bold part)
+  let techRPr = null;    // Run properties for tech stack (italic part)
+  let bulletPPr = null;  // Paragraph properties for bullet lines
+  let bulletRPr = null;  // Run properties for bullet text
+  let bulletNumPr = null; // Numbering properties (if bullets use Word list numbering)
+  let hasBulletChar = false; // Whether bullets use a character prefix (•, -, etc.)
+  let bulletChar = '•';
+  
+  for (const para of sectionParagraphs) {
+    const text = getParagraphText(para, wNs).trim();
+    if (!text) continue;
+    
+    const pPr = para.getElementsByTagNameNS(wNs, 'pPr')[0];
+    const runs = Array.from(para.getElementsByTagNameNS(wNs, 'r'));
+    
+    // Check if this paragraph uses Word list numbering
+    const numPr = pPr?.getElementsByTagNameNS(wNs, 'numPr')[0];
+    
+    // Detect title paragraph: has bold text and contains a pipe separator or tech keywords
+    const isTitleLike = runs.some(r => {
+      const rPr = r.getElementsByTagNameNS(wNs, 'rPr')[0];
+      return rPr?.getElementsByTagNameNS(wNs, 'b')[0] || 
+             rPr?.getElementsByTagNameNS(wNs, 'u')[0];
+    }) && (text.includes('|') || text.includes(','));
+    
+    // Detect bullet paragraph: has indentation, numbering, or starts with bullet char
+    const isBulletLike = numPr || 
+      (pPr?.getElementsByTagNameNS(wNs, 'ind')[0]?.getAttribute('w:left')) ||
+      /^[•\-–—▪▸►⬩‣]\s/.test(text);
+    
+    if (isTitleLike && !titlePPr) {
+      // Clone the title paragraph formatting
+      if (pPr) titlePPr = pPr.cloneNode(true);
+      
+      // Find the bold run (project name) and the italic/regular run (tech stack)
+      for (const run of runs) {
+        const rPr = run.getElementsByTagNameNS(wNs, 'rPr')[0];
+        if (!rPr) continue;
+        
+        const hasBold = rPr.getElementsByTagNameNS(wNs, 'b')[0];
+        const hasItalic = rPr.getElementsByTagNameNS(wNs, 'i')[0];
+        
+        if (hasBold && !titleRPr) {
+          titleRPr = rPr.cloneNode(true);
+        }
+        if (hasItalic && !techRPr) {
+          techRPr = rPr.cloneNode(true);
+        }
+      }
+      
+      // If no explicit italic run found for tech, create one from title with italic added
+      if (!techRPr && titleRPr) {
+        techRPr = titleRPr.cloneNode(true);
+        // Remove bold, add italic
+        const boldEl = techRPr.getElementsByTagNameNS(wNs, 'b')[0];
+        if (boldEl) techRPr.removeChild(boldEl);
+        const underlineEl = techRPr.getElementsByTagNameNS(wNs, 'u')[0];
+        if (underlineEl) techRPr.removeChild(underlineEl);
+      }
+    }
+    
+    if (isBulletLike && !bulletPPr) {
+      // Clone bullet paragraph formatting
+      if (pPr) bulletPPr = pPr.cloneNode(true);
+      if (numPr) bulletNumPr = numPr.cloneNode(true);
+      
+      // Get run formatting from bullet text
+      if (runs.length > 0) {
+        const firstRun = runs[0];
+        const rPr = firstRun.getElementsByTagNameNS(wNs, 'rPr')[0];
+        if (rPr) bulletRPr = rPr.cloneNode(true);
+      }
+      
+      // Check if bullets use a character prefix
+      if (/^[•\-–—▪▸►⬩‣]\s/.test(text)) {
+        hasBulletChar = true;
+        bulletChar = text[0];
+      } else if (numPr) {
+        hasBulletChar = false; // Uses Word numbering, no character prefix needed
+      }
+    }
+    
+    // Stop once we have both styles
+    if (titlePPr && bulletPPr) break;
+  }
+  
+  return { titlePPr, titleRPr, techRPr, bulletPPr, bulletRPr, bulletNumPr, hasBulletChar, bulletChar };
+}
+
+/**
+ * Generate OOXML paragraph nodes for each project entry,
+ * matching the existing formatting styles from the resume.
+ */
+function generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, styles) {
+  const nodes = [];
+  
+  for (const project of projectEntries) {
+    const config = linkConfigs[project.repoId] || { showGithub: true, showDemo: false, demoUrl: '' };
+    
+    // Project title line
+    const titlePara = createStyledTitleParagraph(xmlDoc, wNs, project, config, styles);
+    nodes.push(titlePara);
+    
+    // Bullet points
+    for (const bullet of project.bullets) {
+      const bulletPara = createStyledBulletParagraph(xmlDoc, wNs, bullet, styles);
+      nodes.push(bulletPara);
+    }
+  }
+  
+  return nodes;
+}
+
+/**
+ * Create a project title paragraph cloning the existing resume's title style.
+ * Format: "ProjectName | TechStack"  with optional links
+ */
+function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
+  const p = xmlDoc.createElementNS(wNs, 'w:p');
+  
+  // Use existing title paragraph properties or create default
+  if (styles.titlePPr) {
+    p.appendChild(styles.titlePPr.cloneNode(true));
+  } else {
+    // Fallback: default title formatting
+    const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
+    const spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
+    spacing.setAttribute('w:after', '40');
+    spacing.setAttribute('w:before', '80');
+    spacing.setAttribute('w:line', '276');
+    pPr.appendChild(spacing);
+    p.appendChild(pPr);
+  }
+  
+  // Bold run: Project Name (using cloned title run properties)
+  const nameRun = createStyledRun(xmlDoc, wNs, project.repoName, styles.titleRPr, { bold: true });
+  p.appendChild(nameRun);
+  
+  // Separator " | "
+  const sepRPr = styles.techRPr || styles.titleRPr;
+  const sep = createStyledRun(xmlDoc, wNs, '  |  ', sepRPr, {});
+  p.appendChild(sep);
+  
+  // Links (if any)
+  const links = [];
+  if (config.showGithub && project.html_url) links.push('GitHub');
+  if (config.showDemo && config.demoUrl) links.push('Live Demo');
+  
+  if (links.length > 0) {
+    const linkText = createStyledRun(xmlDoc, wNs, links.join(' | '), sepRPr, { italic: true, color: '0563C1' });
+    p.appendChild(linkText);
+    const sep2 = createStyledRun(xmlDoc, wNs, '  |  ', sepRPr, {});
+    p.appendChild(sep2);
+  }
+  
+  // Italic run: Tech Stack (using cloned tech run properties)
+  const techText = (project.techStack || []).join(', ');
+  const techRun = createStyledRun(xmlDoc, wNs, techText, styles.techRPr, { italic: true });
+  p.appendChild(techRun);
+  
+  return p;
+}
+
+/**
+ * Create a bullet point paragraph cloning the existing resume's bullet style.
+ */
+function createStyledBulletParagraph(xmlDoc, wNs, bulletText, styles) {
+  const p = xmlDoc.createElementNS(wNs, 'w:p');
+  
+  // Use existing bullet paragraph properties or create default
+  if (styles.bulletPPr) {
+    const clonedPPr = styles.bulletPPr.cloneNode(true);
+    p.appendChild(clonedPPr);
+  } else {
+    // Fallback: default bullet formatting
+    const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
+    const ind = xmlDoc.createElementNS(wNs, 'w:ind');
+    ind.setAttribute('w:left', '360');
+    ind.setAttribute('w:hanging', '180');
+    pPr.appendChild(ind);
+    const spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
+    spacing.setAttribute('w:after', '20');
+    spacing.setAttribute('w:line', '264');
+    pPr.appendChild(spacing);
+    p.appendChild(pPr);
+  }
+  
+  // If bullets use Word numbering (numPr), the bullet char is auto-generated
+  // If they use a character prefix, prepend it
+  const prefix = (!styles.bulletNumPr && (styles.hasBulletChar || !styles.bulletPPr)) 
+    ? `${styles.bulletChar || '•'} ` 
+    : '';
+  
+  const textContent = `${prefix}${bulletText}`;
+  const bulletRun = createStyledRun(xmlDoc, wNs, textContent, styles.bulletRPr, {});
+  p.appendChild(bulletRun);
+  
+  return p;
+}
+
+/**
+ * Create a w:r (run) element that clones existing run properties
+ * and applies optional overrides (bold, italic, color, etc.)
+ */
+function createStyledRun(xmlDoc, wNs, text, baseRPr, overrides = {}) {
+  const r = xmlDoc.createElementNS(wNs, 'w:r');
+  
+  // Start with cloned base properties or create new
+  let rPr;
+  if (baseRPr) {
+    rPr = baseRPr.cloneNode(true);
+  } else {
+    rPr = xmlDoc.createElementNS(wNs, 'w:rPr');
+  }
+  
+  // Apply overrides
+  if (overrides.bold) {
+    if (!rPr.getElementsByTagNameNS(wNs, 'b')[0]) {
+      rPr.appendChild(xmlDoc.createElementNS(wNs, 'w:b'));
+    }
+  }
+  if (overrides.italic) {
+    if (!rPr.getElementsByTagNameNS(wNs, 'i')[0]) {
+      rPr.appendChild(xmlDoc.createElementNS(wNs, 'w:i'));
+    }
+  }
+  if (overrides.color) {
+    // Remove existing color if any, then add new
+    const existingColor = rPr.getElementsByTagNameNS(wNs, 'color')[0];
+    if (existingColor) rPr.removeChild(existingColor);
+    const color = xmlDoc.createElementNS(wNs, 'w:color');
+    color.setAttribute('w:val', overrides.color);
+    rPr.appendChild(color);
+  }
+  
+  // Only add rPr if it has children
+  if (rPr.childNodes.length > 0 || rPr.attributes.length > 0) {
+    r.appendChild(rPr);
+  }
+  
+  // Text element
+  const t = xmlDoc.createElementNS(wNs, 'w:t');
+  t.setAttribute('xml:space', 'preserve');
+  t.textContent = text;
+  r.appendChild(t);
+  
+  return r;
+}
+
+// ─── Helper Functions ────────────────────────────────────────
+
 function getParagraphText(para, wNs) {
   const runs = para.getElementsByTagNameNS(wNs, 'r');
   let text = '';
@@ -174,9 +409,6 @@ function getParagraphText(para, wNs) {
   return text;
 }
 
-/**
- * Check if a paragraph uses a Heading style (Heading1, Heading2, etc.)
- */
 function isHeading(para, wNs) {
   const pPr = para.getElementsByTagNameNS(wNs, 'pPr')[0];
   if (!pPr) return false;
@@ -186,218 +418,34 @@ function isHeading(para, wNs) {
   return /heading/i.test(val) || /^h\d$/i.test(val) || /title/i.test(val);
 }
 
-/**
- * Check if a paragraph has bold formatting (common in section headings)
- */
 function isBoldParagraph(para, wNs) {
-  // Check paragraph-level bold
   const pPr = para.getElementsByTagNameNS(wNs, 'pPr')[0];
   if (pPr) {
     const rPr = pPr.getElementsByTagNameNS(wNs, 'rPr')[0];
-    if (rPr) {
-      const bold = rPr.getElementsByTagNameNS(wNs, 'b')[0];
-      if (bold) return true;
-    }
+    if (rPr?.getElementsByTagNameNS(wNs, 'b')[0]) return true;
   }
-  
-  // Check run-level bold (all runs must be bold)
   const runs = para.getElementsByTagNameNS(wNs, 'r');
   if (runs.length === 0) return false;
-  
   let allBold = true;
   for (const run of runs) {
     const rPr = run.getElementsByTagNameNS(wNs, 'rPr')[0];
     if (!rPr) { allBold = false; break; }
-    const bold = rPr.getElementsByTagNameNS(wNs, 'b')[0];
-    if (!bold) { allBold = false; break; }
+    if (!rPr.getElementsByTagNameNS(wNs, 'b')[0]) { allBold = false; break; }
   }
   return allBold;
 }
 
-/**
- * Check if a paragraph has shading/background color (common in resume section headings)
- */
 function hasParagraphShading(para, wNs) {
   const pPr = para.getElementsByTagNameNS(wNs, 'pPr')[0];
   if (!pPr) return false;
   const shd = pPr.getElementsByTagNameNS(wNs, 'shd')[0];
   if (shd) {
     const fill = shd.getAttribute('w:fill');
-    // Has a non-white, non-auto fill color
     if (fill && fill !== 'auto' && fill.toLowerCase() !== 'ffffff') return true;
   }
-  // Check for paragraph borders (another heading indicator)
   const pBdr = pPr.getElementsByTagNameNS(wNs, 'pBdr')[0];
   if (pBdr) return true;
   return false;
-}
-
-/**
- * Generate OOXML paragraph nodes for each project entry
- */
-function generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs) {
-  const nodes = [];
-  
-  for (const project of projectEntries) {
-    const config = linkConfigs[project.repoId] || { showGithub: true, showDemo: false, demoUrl: '' };
-    
-    // Add a small spacer paragraph
-    nodes.push(createEmptyParagraph(xmlDoc, wNs, '4'));
-    
-    // Project Name line (bold) with tech stack (italic) on same line
-    // Format: "Project Name | React, Node.js, PostgreSQL"
-    const titlePara = createProjectTitleParagraph(xmlDoc, wNs, project, config);
-    nodes.push(titlePara);
-    
-    // Bullet points
-    for (const bullet of project.bullets) {
-      const bulletPara = createBulletParagraph(xmlDoc, wNs, bullet);
-      nodes.push(bulletPara);
-    }
-  }
-  
-  return nodes;
-}
-
-/**
- * Create an empty spacer paragraph
- */
-function createEmptyParagraph(xmlDoc, wNs, spacingPt = '4') {
-  const p = xmlDoc.createElementNS(wNs, 'w:p');
-  const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
-  const spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
-  spacing.setAttribute('w:after', spacingPt);
-  spacing.setAttribute('w:before', spacingPt);
-  spacing.setAttribute('w:line', '240');
-  pPr.appendChild(spacing);
-  p.appendChild(pPr);
-  return p;
-}
-
-/**
- * Create the project title paragraph:
- * Bold "Project Name" | Italic "Tech, Stack, Here"
- */
-function createProjectTitleParagraph(xmlDoc, wNs, project, config) {
-  const p = xmlDoc.createElementNS(wNs, 'w:p');
-  
-  // Paragraph properties - tight spacing
-  const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
-  const spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
-  spacing.setAttribute('w:after', '40');
-  spacing.setAttribute('w:before', '80');
-  spacing.setAttribute('w:line', '276');
-  pPr.appendChild(spacing);
-  p.appendChild(pPr);
-  
-  // Bold run: Project Name
-  const nameRun = createRun(xmlDoc, wNs, project.repoName, { bold: true, fontSize: '22' });
-  p.appendChild(nameRun);
-  
-  // Links (if any)
-  const links = [];
-  if (config.showGithub && project.html_url) links.push('GitHub');
-  if (config.showDemo && config.demoUrl) links.push('Live Demo');
-  
-  if (links.length > 0) {
-    const linkSep = createRun(xmlDoc, wNs, '  |  ', { fontSize: '20', color: '808080' });
-    p.appendChild(linkSep);
-    const linkText = createRun(xmlDoc, wNs, links.join(' | '), { italic: true, fontSize: '20', color: '2563EB' });
-    p.appendChild(linkText);
-  }
-  
-  // Separator
-  const sep = createRun(xmlDoc, wNs, '  |  ', { fontSize: '20', color: '808080' });
-  p.appendChild(sep);
-  
-  // Italic run: Tech Stack
-  const techText = (project.techStack || []).join(', ');
-  const techRun = createRun(xmlDoc, wNs, techText, { italic: true, fontSize: '20' });
-  p.appendChild(techRun);
-  
-  return p;
-}
-
-/**
- * Create a bullet point paragraph with a dash prefix
- */
-function createBulletParagraph(xmlDoc, wNs, bulletText) {
-  const p = xmlDoc.createElementNS(wNs, 'w:p');
-  
-  // Paragraph properties with left indent and tight spacing
-  const pPr = xmlDoc.createElementNS(wNs, 'w:pPr');
-  
-  // Indent
-  const ind = xmlDoc.createElementNS(wNs, 'w:ind');
-  ind.setAttribute('w:left', '360');
-  ind.setAttribute('w:hanging', '180');
-  pPr.appendChild(ind);
-  
-  // Tight line spacing
-  const spacing = xmlDoc.createElementNS(wNs, 'w:spacing');
-  spacing.setAttribute('w:after', '20');
-  spacing.setAttribute('w:line', '264');
-  pPr.appendChild(spacing);
-  
-  p.appendChild(pPr);
-  
-  // Bullet character + text
-  const bulletRun = createRun(xmlDoc, wNs, `• ${bulletText}`, { fontSize: '20' });
-  p.appendChild(bulletRun);
-  
-  return p;
-}
-
-/**
- * Create a w:r (run) element with text and optional formatting
- */
-function createRun(xmlDoc, wNs, text, options = {}) {
-  const r = xmlDoc.createElementNS(wNs, 'w:r');
-  
-  // Run properties
-  const rPr = xmlDoc.createElementNS(wNs, 'w:rPr');
-  let hasProps = false;
-  
-  if (options.bold) {
-    rPr.appendChild(xmlDoc.createElementNS(wNs, 'w:b'));
-    hasProps = true;
-  }
-  if (options.italic) {
-    rPr.appendChild(xmlDoc.createElementNS(wNs, 'w:i'));
-    hasProps = true;
-  }
-  if (options.fontSize) {
-    const sz = xmlDoc.createElementNS(wNs, 'w:sz');
-    sz.setAttribute('w:val', options.fontSize); // half-points: 22 = 11pt
-    rPr.appendChild(sz);
-    const szCs = xmlDoc.createElementNS(wNs, 'w:szCs');
-    szCs.setAttribute('w:val', options.fontSize);
-    rPr.appendChild(szCs);
-    hasProps = true;
-  }
-  if (options.color) {
-    const color = xmlDoc.createElementNS(wNs, 'w:color');
-    color.setAttribute('w:val', options.color);
-    rPr.appendChild(color);
-    hasProps = true;
-  }
-  if (options.font) {
-    const rFonts = xmlDoc.createElementNS(wNs, 'w:rFonts');
-    rFonts.setAttribute('w:ascii', options.font);
-    rFonts.setAttribute('w:hAnsi', options.font);
-    rPr.appendChild(rFonts);
-    hasProps = true;
-  }
-  
-  if (hasProps) r.appendChild(rPr);
-  
-  // Text element
-  const t = xmlDoc.createElementNS(wNs, 'w:t');
-  t.setAttribute('xml:space', 'preserve');
-  t.textContent = text;
-  r.appendChild(t);
-  
-  return r;
 }
 
 /**
