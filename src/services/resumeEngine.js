@@ -77,7 +77,7 @@ ${customInstruction ? `\n=== USER'S SPECIFIC INSTRUCTION ===\n${customInstructio
 2. The FIRST bullet should be a comprehensive project summary: what it is, what it does for users, and what core features it has. This bullet should be the longest (2-3 lines). Start with "Architected and deployed".
 3. Bullets 2 and 3 should highlight specific technical achievements, architecture decisions, or measurable impacts RELEVANT to what the project actually does.
 4. Use the ACTUAL tech stack from the repo. If the README mentions specific technologies (e.g., "built with Firebase", "uses Prisma ORM"), include those — not just the primary language.
-5. Include realistic, plausible metrics (e.g., "reducing page load time by ~40%", "processing 10K+ records", "serving 200+ active users"). These should be believable for the project's scale.
+5. Quantify impact with diverse, contextually realistic engineering metrics (e.g., sub-100ms response latencies, data throughput, test coverage, zero-downtime offline state, or memory footprint). NEVER use repetitive hardcoded percentages like "~35%" or "40%" across bullets; articulate genuine, distinct technical outcomes.
 6. NEVER fabricate features that aren't evidenced by the description or README.
 
 === TONE/STYLE ===
@@ -351,15 +351,91 @@ function getArchitectureDetail(repo) {
   return 'modular data processing workflows with clean separation of concerns';
 }
 
+function getRepoHash(repoName, salt = 0) {
+  let hash = salt;
+  const str = repoName || 'repo';
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+function pickOption(options, repoName, salt = 0) {
+  if (!options || options.length === 0) return '';
+  return options[getRepoHash(repoName, salt) % options.length];
+}
+
 function getPerformanceMetric(repo) {
   const deps = (repo.detected_deps || []).map(d => d.toLowerCase());
+  const repoName = repo.name || '';
+
+  // Redis / Caching
   if (deps.some(d => d.includes('redis') || d.includes('cache'))) {
-    return 'reducing API response times by ~60% through intelligent caching strategies';
+    return pickOption([
+      'slashing data access latency to sub-10ms through tiered in-memory caching',
+      'minimizing database read contention through cache-aside eviction policies',
+      'optimizing endpoint throughput under high concurrent request bursts via key-value caching',
+      'reducing repeated backend computation cycles with distributed cache invalidation'
+    ], repoName, 1);
   }
-  if (deps.some(d => d.includes('postgres') || d.includes('mongo') || d.includes('mysql') || d.includes('supabase'))) {
-    return 'optimizing database query performance by ~35% with indexed lookups and connection pooling';
+
+  // Database / Storage
+  if (deps.some(d => d.includes('postgres') || d.includes('mongo') || d.includes('mysql') || d.includes('supabase') || d.includes('sqlite') || d.includes('prisma'))) {
+    return pickOption([
+      'accelerating query execution times through composite indexing and connection pool tuning',
+      'eliminating N+1 query bottlenecks and optimizing multi-table joins via eager loading',
+      'enforcing ACID transaction compliance and strict schema validations across write-heavy operations',
+      'optimizing relational data retrieval with selective projection and structured query indexing'
+    ], repoName, 2);
   }
-  return 'reducing state latency by ~35% and improving throughput across concurrent workloads';
+
+  // AI / LLM / Vector
+  if (deps.some(d => d.includes('gemini') || d.includes('openai') || d.includes('langchain') || d.includes('pinecone') || d.includes('rag'))) {
+    return pickOption([
+      'optimizing token consumption and API payload costs through context-aware prompt compression',
+      'mitigating third-party rate limits (HTTP 429) using exponential backoff retry queues',
+      'accelerating semantic similarity lookups with normalized vector embeddings',
+      'delivering deterministic structured outputs with strict schema enforcement and error boundaries'
+    ], repoName, 3);
+  }
+
+  // Real-Time / Streaming
+  if (deps.some(d => d.includes('websocket') || d.includes('socket') || d.includes('grpc') || d.includes('rxjs'))) {
+    return pickOption([
+      'achieving sub-50ms message delivery latency with automatic heartbeat connection recovery',
+      'preventing event drops during network disconnections using resilient client-side buffers',
+      'optimizing streaming payload serialization to maximize bidirectional throughput'
+    ], repoName, 4);
+  }
+
+  // Frontend / React / Vue / Single Page Apps
+  if (deps.some(d => d.includes('react') || d.includes('vue') || d.includes('vite') || d.includes('next') || d.includes('svelte') || d.includes('angular'))) {
+    return pickOption([
+      'eliminating redundant re-renders and maintaining responsive 60 FPS interactions with memoized state selectors',
+      'slashing initial bundle footprint and time-to-interactive (TTI) through dynamic route-based code splitting',
+      'delivering instantaneous offline state restoration with resilient local persistence stores',
+      'minimizing client-side UI latency through optimistic updates and non-blocking asynchronous workflows'
+    ], repoName, 5);
+  }
+
+  // Backend / APIs
+  if (deps.some(d => d.includes('fastapi') || d.includes('express') || d.includes('flask') || d.includes('django') || d.includes('node') || d.includes('spring'))) {
+    return pickOption([
+      'optimizing request-response roundtrips with lightweight middleware pipelines and structured error handling',
+      'ensuring sub-100ms endpoint response latencies under sustained concurrent traffic',
+      'enforcing strict contract serialization and payload sanitization across ingress API routes',
+      'maximizing server throughput via asynchronous non-blocking event loops'
+    ], repoName, 6);
+  }
+
+  // General / Core Systems
+  return pickOption([
+    'ensuring consistent sub-second execution times through optimized algorithmic data structures',
+    'streamlining end-to-end data processing workflows with defensive error boundaries',
+    'reducing runtime execution overhead and eliminating memory leaks through disciplined resource cleanup',
+    'maintaining responsive throughput and seamless state synchronization across concurrent operations'
+  ], repoName, 7);
 }
 
 function getInfraDetail(repo) {
@@ -371,8 +447,21 @@ function getInfraDetail(repo) {
 }
 
 function getQualityMetric(repo) {
-  if (repo.stargazers_count > 50) return `achieving ${repo.stargazers_count}+ GitHub stars through code quality and community engagement`;
-  return 'reducing regression rates by over 40%';
+  const repoName = repo.name || '';
+  if (repo.stargazers_count > 20) {
+    return `earning ${repo.stargazers_count}+ GitHub stars and active developer adoption`;
+  }
+  if (repo.commits_count > 40) {
+    return `demonstrating robust iterative engineering across ${repo.commits_count}+ production commits`;
+  }
+  return pickOption([
+    'enforcing comprehensive unit and integration test coverage across critical user paths',
+    'maintaining zero runtime regression errors through automated CI/CD validation pipelines',
+    'enforcing strict static type analysis and clean linting standards across the codebase',
+    'adhering to clean architecture principles and modular separation of concerns',
+    'incorporating robust error logging and centralized telemetry for production auditability',
+    'streamlining developer onboarding and long-term maintainability with documented architectural patterns'
+  ], repoName, 8);
 }
 
 function getProjectNeed(repo) {
@@ -405,9 +494,36 @@ function getTechnicalOptimization(repo) {
 
 function getTechnicalMetric(repo) {
   const deps = (repo.detected_deps || []).map(d => d.toLowerCase());
-  if (deps.some(d => d.includes('websocket') || d.includes('socket'))) return 'achieving sub-50ms message delivery latency';
-  if (deps.some(d => d.includes('postgres') || d.includes('mongo'))) return 'achieving sub-100ms response latencies';
-  return 'achieving sub-100ms response latencies for critical user queries';
+  const repoName = repo.name || '';
+
+  if (deps.some(d => d.includes('websocket') || d.includes('socket'))) {
+    return pickOption([
+      'achieving sub-50ms bidirectional message propagation',
+      'maintaining zero packet loss during network handshakes'
+    ], repoName, 9);
+  }
+  if (deps.some(d => d.includes('redis') || d.includes('cache'))) {
+    return pickOption([
+      'achieving sub-10ms in-memory query retrieval',
+      'slashing backend read pressure under burst loads'
+    ], repoName, 10);
+  }
+  if (deps.some(d => d.includes('postgres') || d.includes('mongo') || d.includes('sql'))) {
+    return pickOption([
+      'maintaining sub-100ms analytical query response times',
+      'eliminating table lock contention on concurrent writes'
+    ], repoName, 11);
+  }
+  if (deps.some(d => d.includes('react') || d.includes('vue') || d.includes('vite'))) {
+    return pickOption([
+      'preserving 60 FPS rendering performance and sub-100ms interaction latency',
+      'achieving sub-second initial contentful paint across diverse client devices'
+    ], repoName, 12);
+  }
+  return pickOption([
+    'ensuring sub-100ms response latencies for critical user queries',
+    'achieving high-throughput data processing with deterministic execution bounds'
+  ], repoName, 13);
 }
 
 /**

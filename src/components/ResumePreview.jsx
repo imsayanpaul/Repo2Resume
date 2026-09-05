@@ -607,7 +607,7 @@ export default function ResumePreview({
               {/* Quick Suggestion Chips */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {[
-                  'Emphasize 40% speedup & quantitative metrics',
+                  'Emphasize sub-100ms latency & quantitative metrics',
                   'Highlight testing, security & code coverage',
                   'Focus on microservice backend architecture',
                   'Make concise for a 1-page resume'
