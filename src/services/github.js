@@ -118,8 +118,8 @@ function ghFetch(path, personalToken = '') {
 }
 
 // Enrichment results keyed by repo + last update, so revisits cost no API calls
-// v3: entries also carry commit subjects and top-level files
-const CACHE_PREFIX = 'r2r:enrich:v3:';
+// v4: also reads manifests in frontend/, backend/ and similar folders
+const CACHE_PREFIX = 'r2r:enrich:v4:';
 function readCache(key) {
   try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; }
 }
@@ -288,8 +288,24 @@ export async function enrichRepoDetails(repo, personalToken = '') {
     manifests.forEach((file, i) => {
       if (texts[i]) detectDepsFromManifest(file, texts[i]).forEach(d => manifestDeps.add(d));
     });
+
+    // Full-stack repos often keep each side in its own folder (frontend/package.json,
+    // backend/requirements.txt). Raw file reads don't count against the API limit.
+    const appDirs = rootFiles
+      .filter(f => f.type === 'dir' && APP_DIRS.has(f.name.toLowerCase()))
+      .map(f => f.name)
+      .slice(0, 4);
+    const subPaths = appDirs.flatMap(dir => ['package.json', 'requirements.txt', 'pyproject.toml'].map(file => [dir, file]));
+    const subTexts = await Promise.all(subPaths.map(([dir, file]) => fetchRawFile(repo.full_name, `${dir}/${file}`)));
+    let foundSubManifest = false;
+    subPaths.forEach(([, file], i) => {
+      if (!subTexts[i]) return;
+      foundSubManifest = true;
+      detectDepsFromManifest(file, subTexts[i]).forEach(d => manifestDeps.add(d));
+    });
+
     // With a manifest in hand, description-only guesses that it doesn't confirm are dropped
-    if (manifests.length > 0) repo.weak_deps = [];
+    if (manifests.length > 0 || foundSubManifest) repo.weak_deps = [];
   } else {
     // API listing failed (usually the rate limit). raw.githubusercontent.com isn't
     // API-limited, so still try the common file names directly.
@@ -418,12 +434,15 @@ async function fetchCommitCount(api, owner, personalToken) {
   }
 }
 
+// Folders that commonly hold one side of a full-stack app
+const APP_DIRS = new Set(['frontend', 'client', 'web', 'app', 'ui', 'backend', 'server', 'api']);
+
 // Package name -> display name, for manifest-based detection
 const MANIFEST_PACKAGES = {
   // JavaScript / TypeScript
   react: 'React', 'react-native': 'React Native', next: 'Next.js', vue: 'Vue.js', nuxt: 'Nuxt.js',
   '@angular/core': 'Angular', svelte: 'Svelte', '@sveltejs/kit': 'SvelteKit', vite: 'Vite',
-  tailwindcss: 'Tailwind CSS', express: 'Express', fastify: 'Fastify', '@nestjs/core': 'NestJS',
+  tailwindcss: 'Tailwind CSS', '@tailwindcss/vite': 'Tailwind CSS', 'radix-ui': 'Radix UI', express: 'Express', fastify: 'Fastify', '@nestjs/core': 'NestJS',
   koa: 'Koa', 'socket.io': 'Socket.io', ws: 'WebSockets', graphql: 'GraphQL', '@apollo/server': 'Apollo GraphQL',
   '@trpc/server': 'tRPC', prisma: 'Prisma', '@prisma/client': 'Prisma', 'drizzle-orm': 'Drizzle ORM',
   mongoose: 'Mongoose', mongodb: 'MongoDB', pg: 'PostgreSQL', mysql2: 'MySQL', redis: 'Redis', ioredis: 'Redis',
@@ -440,7 +459,7 @@ const MANIFEST_PACKAGES = {
   'google-generativeai': 'Gemini API', 'google-genai': 'Gemini API', anthropic: 'Claude API', pytest: 'PyTest',
   celery: 'Celery', streamlit: 'Streamlit', selenium: 'Selenium', playwright: 'Playwright', beautifulsoup4: 'BeautifulSoup',
   pydantic: 'Pydantic', uvicorn: 'Uvicorn', psycopg2: 'PostgreSQL', 'psycopg2-binary': 'PostgreSQL', psycopg: 'PostgreSQL',
-  pymongo: 'MongoDB', supabase: 'Supabase', boto3: 'AWS', 'opencv-python': 'OpenCV', pyperclip: 'Pyperclip',
+  groq: 'Groq', 'yt-dlp': 'yt-dlp', pymongo: 'MongoDB', supabase: 'Supabase', boto3: 'AWS', 'opencv-python': 'OpenCV', pyperclip: 'Pyperclip',
   pyqt5: 'PyQt', pyqt6: 'PyQt', pyside6: 'PySide',
   // Go / Rust
   'github.com/gin-gonic/gin': 'Gin', 'github.com/gofiber/fiber': 'Fiber', 'google.golang.org/grpc': 'gRPC',
