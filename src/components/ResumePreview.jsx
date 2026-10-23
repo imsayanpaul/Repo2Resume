@@ -1,33 +1,47 @@
 import React, { useState, useRef } from 'react';
-import { Copy, Check, Download, Edit3, RefreshCw, FileCode, Layers, Eye, Loader2, Info, ExternalLink, Github, Globe, Terminal, Sparkles, Wand2, Send, X, Upload, FileUp, CheckCircle, AlertCircle } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { Copy, Check, Loader2, RefreshCw, Wand2, X, Upload, FileUp, CheckCircle, AlertCircle } from 'lucide-react';
 import { injectProjectsIntoDocx, downloadDocxBlob } from '../services/docxInjector';
+import { PixelDoc } from './Header';
 
 const TONES = [
-  { 
-    id: 'xyz', 
-    label: 'Google XYZ Formula',
-    tagline: 'Google XYZ Formula',
-    tooltip: 'Accomplished [X] as measured by [Y] by doing [Z]. Emphasizes quantitative metrics, speed, and performance results.'
+  {
+    id: 'xyz',
+    label: 'XYZ',
+    name: 'Google XYZ',
+    tooltip: 'What you built, its concrete scope, and how you built it, in one line each.'
   },
-  { 
-    id: 'star', 
-    label: 'STAR Method',
-    tagline: 'Situation, Task, Action, Result',
-    tooltip: 'Focuses on the engineering challenge solved, key technical actions taken, and final project outcomes.'
+  {
+    id: 'star',
+    label: 'STAR',
+    name: 'STAR',
+    tooltip: 'The problem the project solves, what you built, and what it now does.'
   },
-  { 
-    id: 'technical', 
-    label: 'Technical Depth',
-    tagline: 'Architecture & System Design',
-    tooltip: 'Highlights system architecture, database schemas, clean code standards, and framework implementations.'
+  {
+    id: 'technical',
+    label: 'Technical',
+    name: 'Technical depth',
+    tooltip: 'Architecture and data flow: how the pieces connect, as the repo shows them.'
   },
-  { 
-    id: 'ats', 
-    label: 'ATS Minimal',
-    tagline: 'ATS Parser Optimization',
-    tooltip: 'Concise 1-2 line bullet points with strong action verbs engineered for Applicant Tracking Systems (ATS).'
+  {
+    id: 'ats',
+    label: 'ATS',
+    name: 'ATS minimal',
+    tooltip: 'Short, keyword-dense lines that parse cleanly in applicant tracking systems.'
   }
+];
+
+const VIEWS = [
+  { id: 'formatted', label: 'Page' },
+  { id: 'markdown', label: 'Markdown' },
+  { id: 'latex', label: 'LaTeX' },
+  { id: 'json', label: 'JSON' }
+];
+
+const SUGGESTIONS = [
+  'Emphasize features and integrations from the README',
+  'Highlight testing, security and CI',
+  'Focus on the backend architecture',
+  'Make it concise for a one-page résumé'
 ];
 
 const PROVIDER_LABELS = { groq: 'Groq', gemini: 'Gemini' };
@@ -201,7 +215,6 @@ export default function ResumePreview({
     }
 
     setCopied(true);
-    confetti({ particleCount: 35, spread: 50, origin: { y: 0.85 } });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -252,7 +265,6 @@ export default function ResumePreview({
       );
       downloadDocxBlob(modifiedBlob, uploadedDocx.name);
       setInjectStatus('success');
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
       setTimeout(() => setInjectStatus(null), 5000);
     } catch (err) {
       console.error('DOCX injection failed:', err);
@@ -270,343 +282,178 @@ export default function ResumePreview({
     if (docxInputRef.current) docxInputRef.current.value = '';
   };
 
+  const hasBullets = generatedBullets.length > 0;
+  const docxMessage = !uploadedDocx ? null
+    : injectStatus === 'error' ? injectError
+    : injectStatus === 'success' ? 'Projects added. The updated file has been downloaded.'
+    : hasBullets ? 'Ready to add these projects to its Projects section.'
+    : 'Write bullets first, then add them to this résumé.';
+
   return (
-    <div className="glass-panel" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0 }}>
-      
-      {/* Top Toolbar: Tone Switcher & View Modes */}
-      <div className="preview-top-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', flexShrink: 0 }}>
-        
-        {/* Tone Selector */}
-        <div className="tone-selector-bar">
-          {TONES.map(t => {
-            const isActive = activeTone === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => onToneChange(t.id)}
-                onMouseEnter={() => setHoveredTone(t.id)}
-                onMouseLeave={() => setHoveredTone(null)}
-                title={t.tooltip}
-                disabled={isGenerating}
-                style={{ fontSize: '0.76rem', padding: '4px 10px', height: '28px', gap: '5px' }}
-              >
-                {isGenerating && isActive && <Loader2 size={11} className="spin" />}
-                <span>{t.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* View Format Selector & Actions */}
-        <div className="preview-actions-bar" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ display: 'flex', background: '#0f0f12', borderRadius: 'var(--radius-sm)', padding: '2px', border: '1px solid var(--border-muted)' }}>
+    <section className="win preview" aria-label="Résumé preview">
+      <div className="win-bar">
+        <span className="win-title">RESUME.DOC</span>
+        <span className="win-meta">{hasBullets ? `${generatedBullets.length} ${generatedBullets.length === 1 ? 'project' : 'projects'} · ${VIEWS.find(v => v.id === viewMode)?.label.toLowerCase()}` : 'empty'}</span>
+        <span className="win-btns" aria-hidden="true"><span /><span /></span>
+      </div>
+      <div className="toolbar">
+        <div className="seg" role="group" aria-label="Writing style">
+          {TONES.map(t => (
             <button
-              className={`btn btn-sm ${viewMode === 'formatted' ? 'btn-secondary' : 'btn-ghost'}`}
-              onClick={() => setViewMode('formatted')}
-              title="Formatted Card View"
-              style={{ padding: '3px 8px', fontSize: '0.76rem' }}
-            >
-              <Eye size={13} /> Preview
-            </button>
-            <button
-              className={`btn btn-sm ${viewMode === 'markdown' ? 'btn-secondary' : 'btn-ghost'}`}
-              onClick={() => setViewMode('markdown')}
-              title="Markdown format"
-              style={{ padding: '3px 8px', fontSize: '0.76rem' }}
-            >
-              <FileCode size={13} /> MD
-            </button>
-            <button
-              className={`btn btn-sm ${viewMode === 'latex' ? 'btn-secondary' : 'btn-ghost'}`}
-              onClick={() => setViewMode('latex')}
-              title="LaTeX format"
-              style={{ padding: '3px 8px', fontSize: '0.76rem' }}
-            >
-              LaTeX
-            </button>
-            <button
-              className={`btn btn-sm ${viewMode === 'json' ? 'btn-secondary' : 'btn-ghost'}`}
-              onClick={() => setViewMode('json')}
-              title="JSON Resume format"
-              style={{ padding: '3px 8px', fontSize: '0.76rem' }}
-            >
-              JSON
-            </button>
-          </div>
-
-          <button 
-            type="button" 
-            className={`btn ${copied ? 'btn-secondary' : 'btn-primary'} btn-sm`} 
-            onClick={handleCopy} 
-            disabled={generatedBullets.length === 0 || isGenerating} 
-            title="Copy formatted resume text to Clipboard" 
-            style={{ 
-              height: '32px', 
-              fontSize: '0.8rem',
-              fontWeight: '700',
-              padding: '0 14px',
-              gap: '6px',
-              borderRadius: 'var(--radius-sm)',
-              boxShadow: generatedBullets.length > 0 && !copied ? '0 0 16px rgba(255, 255, 255, 0.3)' : 'none'
-            }}
-          >
-            {copied ? <Check size={14} color="#ffffff" /> : <Copy size={14} />}
-            <span>{copied ? 'Copied to Clipboard!' : 'Copy Resume'}</span>
-          </button>
-
-          {/* Resume Upload & Inject */}
-          <input
-            ref={docxInputRef}
-            type="file"
-            accept=".docx"
-            onChange={handleDocxUpload}
-            style={{ display: 'none' }}
-          />
-
-          {!uploadedDocx ? (
-            <button
+              key={t.id}
               type="button"
-              className="btn btn-sm btn-ghost"
-              onClick={() => docxInputRef.current?.click()}
+              aria-pressed={activeTone === t.id}
+              onClick={() => onToneChange(t.id)}
+              onMouseEnter={() => setHoveredTone(t.id)}
+              onMouseLeave={() => setHoveredTone(null)}
+              onFocus={() => setHoveredTone(t.id)}
+              onBlur={() => setHoveredTone(null)}
               disabled={isGenerating}
-              title="Upload your existing resume (.docx) to inject projects into it"
-              style={{ height: '32px', fontSize: '0.78rem', padding: '0 10px', gap: '5px' }}
+              title={t.tooltip}
             >
-              <Upload size={13} /> Upload Resume
+              {isGenerating && activeTone === t.id && <Loader2 size={12} className="spin" aria-hidden="true" />}
+              {t.label}
             </button>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <button
-                type="button"
-                className={`btn btn-sm ${injectStatus === 'success' ? 'btn-secondary' : 'btn-primary'}`}
-                onClick={handleInjectIntoResume}
-                disabled={isInjecting}
-                title={`Inject projects into ${uploadedDocx.name}`}
-                style={{
-                  height: '32px',
-                  fontSize: '0.78rem',
-                  padding: '0 12px',
-                  gap: '5px',
-                  boxShadow: injectStatus !== 'success' ? '0 0 12px rgba(255,255,255,0.2)' : 'none'
-                }}
-              >
-                {isInjecting ? (
-                  <><Loader2 size={13} className="spin" /> Injecting...</>
-                ) : injectStatus === 'success' ? (
-                  <><CheckCircle size={13} /> Downloaded!</>
-                ) : (
-                  <><FileUp size={13} /> Inject into Resume</>
-                )}
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={handleRemoveUploadedDocx}
-                title="Remove uploaded resume"
-                style={{ height: '32px', padding: '0 6px', minWidth: 'auto' }}
-              >
-                <X size={13} />
-              </button>
-            </div>
-          )}
+          ))}
         </div>
 
+        <div className="seg" role="group" aria-label="Output format">
+          {VIEWS.map(v => (
+            <button key={v.id} type="button" aria-pressed={viewMode === v.id} onClick={() => setViewMode(v.id)}>
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        <span className="toolbar-spacer" />
+
+        <input ref={docxInputRef} type="file" accept=".docx" onChange={handleDocxUpload} hidden />
+        {!uploadedDocx ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => docxInputRef.current?.click()}
+            disabled={isGenerating}
+            title="Add these projects into your existing Word résumé"
+          >
+            <Upload size={14} aria-hidden="true" /> Word résumé
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleInjectIntoResume}
+            disabled={isInjecting || !hasBullets}
+            title={`Add projects to ${uploadedDocx.name}`}
+          >
+            {isInjecting ? <><Loader2 size={14} className="spin" aria-hidden="true" /> Adding…</> : <><FileUp size={14} aria-hidden="true" /> Add to .docx</>}
+          </button>
+        )}
+
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={handleCopy}
+          disabled={!hasBullets || isGenerating}
+        >
+          {copied ? <><Check size={14} aria-hidden="true" /> Copied</> : <><Copy size={14} aria-hidden="true" /> Copy {viewMode === 'formatted' ? 'for Word/Docs' : VIEWS.find(v => v.id === viewMode)?.label}</>}
+        </button>
       </div>
 
-      {/* Dynamic Hover Tooltip Explanation Banner */}
-      <div style={{
-        padding: '6px 12px',
-        borderRadius: 'var(--radius-sm)',
-        background: '#121215',
-        border: '1px solid var(--border-muted)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        fontSize: '0.76rem',
-        color: 'var(--text-secondary)',
-        flexShrink: 0
-      }}>
-        <Info size={13} color="#a1a1aa" style={{ flexShrink: 0 }} />
-        <span style={{ lineHeight: '1.4' }}>
-          <strong style={{ color: '#ffffff' }}>{activeToneObj.label}:</strong> {activeToneObj.tooltip}
-        </span>
+      <div className="tone-hint">
+        <strong>{activeToneObj.name}:</strong> {activeToneObj.tooltip}
       </div>
 
-      {/* Upload Status / Error Banner */}
       {uploadedDocx && (
-        <div style={{
-          padding: '5px 12px',
-          borderRadius: 'var(--radius-sm)',
-          background: injectStatus === 'error' ? 'rgba(239,68,68,0.1)' : injectStatus === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(99,102,241,0.08)',
-          border: `1px solid ${injectStatus === 'error' ? 'rgba(239,68,68,0.3)' : injectStatus === 'success' ? 'rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.2)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '0.74rem',
-          color: injectStatus === 'error' ? '#f87171' : injectStatus === 'success' ? '#4ade80' : '#a5b4fc',
-          flexShrink: 0
-        }}>
-          {injectStatus === 'error' ? (
-            <AlertCircle size={13} style={{ flexShrink: 0 }} />
-          ) : injectStatus === 'success' ? (
-            <CheckCircle size={13} style={{ flexShrink: 0 }} />
-          ) : (
-            <FileUp size={13} style={{ flexShrink: 0 }} />
-          )}
-          <span style={{ lineHeight: '1.4' }}>
-            {injectStatus === 'error' ? injectError : 
-             injectStatus === 'success' ? `Projects injected and downloaded successfully!` :
-             generatedBullets.length === 0 ? <>Resume loaded: <strong style={{ color: '#ffffff' }}>{uploadedDocx.name}</strong> — select repos on the left and click "Generate Resume Bullets" to inject!</> :
-             <>Resume loaded: <strong style={{ color: '#ffffff' }}>{uploadedDocx.name}</strong> — click "Inject into Resume" to add projects</>
-            }
-          </span>
+        <div className={`docx-bar ${injectStatus === 'error' ? 'is-error' : injectStatus === 'success' ? 'is-success' : ''}`} role="status">
+          {injectStatus === 'error' ? <AlertCircle size={14} aria-hidden="true" /> : injectStatus === 'success' ? <CheckCircle size={14} aria-hidden="true" /> : <FileUp size={14} aria-hidden="true" />}
+          <span><span className="file">{uploadedDocx.name}</span> · {docxMessage}</span>
+          <button type="button" className="btn btn-ghost btn-sm btn-icon" onClick={handleRemoveUploadedDocx} aria-label="Remove uploaded résumé">
+            <X size={14} />
+          </button>
         </div>
       )}
 
-      {/* Main Content Area */}
-      {/* Skeleton only until the first project is ready; after that bullets stream in */}
-      {isGenerating && generatedBullets.length === 0 ? (
-        /* Loading Skeleton State */
-        <div style={{ padding: '24px 12px', display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#ffffff', padding: '12px', background: '#18181b', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-muted)' }}>
-            <Loader2 size={16} className="spin" />
-            <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
-              Analyzing repositories & generating ATS bullets...
-            </span>
+      <div className="desk">
+        {isGenerating && !hasBullets ? (
+          <div className="page">
+            <div className="skeleton-status"><span className="blocks" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /></span> reading repositories</div>
+            <div className="skeleton-line" style={{ width: '30%' }} />
+            <div className="skeleton-line" style={{ width: '96%', marginTop: 22 }} />
+            <div className="skeleton-line" style={{ width: '90%' }} />
+            <div className="skeleton-line" style={{ width: '82%' }} />
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <div className="pulse-skeleton" style={{ width: '180px', height: '20px' }} />
-              <div className="pulse-skeleton" style={{ width: '140px', height: '16px' }} />
+        ) : !hasBullets ? (
+          <div className="empty-state">
+            <PixelDoc className="empty-art" />
+            <h3>Nothing written yet</h3>
+            <p>Pick the projects you want on your résumé from the list, then choose <strong>Write bullets</strong>. A draft shows here right away and is refined by AI a moment later.</p>
+          </div>
+        ) : viewMode === 'formatted' ? (
+          <>
+            <div className="page-hint">
+              <span>Click any bullet to edit it.</span>
+              <span className="hide-sm">Notes in grey are for you and aren't copied.</span>
             </div>
-            <div className="pulse-skeleton" style={{ width: '100%', height: '14px' }} />
-            <div className="pulse-skeleton" style={{ width: '92%', height: '14px' }} />
-            <div className="pulse-skeleton" style={{ width: '85%', height: '14px' }} />
-          </div>
-        </div>
-      ) : generatedBullets.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
-            No Resume Bullets Generated Yet
-          </h3>
-          <p style={{ maxWidth: '380px', margin: '0 auto', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Select repositories from the left panel and click <strong>"Generate Resume Bullets"</strong> to build ATS-optimized project bullets.
-          </p>
-        </div>
-      ) : (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px' }}>
-          
-          {/* Formatted Interactive Editor View */}
-          {viewMode === 'formatted' && (
-            <div className="resume-paper" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ borderBottom: '1px solid var(--border-muted)', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#ffffff' }}>
-                  PROJECTS & TECHNICAL EXPERIENCES
-                </h3>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Click text to edit inline</span>
-              </div>
+            <article className="page resume">
+              <div className="resume-section">Projects</div>
 
               {generatedBullets.map((repoItem, repoIndex) => {
                 const config = getProjectLinkConfig(repoItem.repoId);
-
                 return (
-                  <div key={repoItem.repoId} style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '16px', borderBottom: repoIndex < generatedBullets.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-                    
-                    {/* Repo Title & Tech Stack */}
-                    <div className="repo-item-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <h4 style={{ fontSize: '0.98rem', fontWeight: '700', color: '#ffffff' }}>
-                          {repoItem.repoName}
-                        </h4>
-                        
-                        {config.showGithub && itemLinkBadge(repoItem.html_url, 'GitHub', <Github size={11} />)}
-                        {config.showDemo && config.demoUrl && itemLinkBadge(config.demoUrl, 'Live Demo', <Globe size={11} />)}
-                      </div>
-
-                      <span className="font-mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                        {repoItem.techStack.join(' • ')}
+                  <div key={repoItem.repoId} className={`resume-entry ${repoItem.pending ? 'is-pending' : ''}`}>
+                    <div className="entry-notes">
+                      <span className={`src ${repoItem.source === 'ai' ? 'is-ai' : ''}`} title={repoItem.source === 'ai' ? 'Written by AI from the README, files and detected stack' : 'Built from README features, detected stack and repo stats'}>
+                        {repoItem.pending
+                          ? <><span className="blocks" aria-hidden="true"><i /><i /><i /><i /></span> draft · AI rewrite on the way</>
+                          : repoItem.source === 'ai' ? `AI · ${PROVIDER_LABELS[repoItem.provider] || ''} ${shortModel(repoItem.model)}` : 'draft · offline engine'}
                       </span>
-                    </div>
-
-                    {/* Where these bullets came from, and any figures to double-check */}
-                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      <span className="badge" style={{ fontSize: '0.68rem' }} title={repoItem.source === 'ai' ? `Written by ${PROVIDER_LABELS[repoItem.provider] || 'AI'} from the README, description and detected stack` : 'Built by the offline template engine from README features, detected stack and repo stats'}>
-                        {repoItem.source === 'ai'
-                          ? <><Sparkles size={10} /> AI · {PROVIDER_LABELS[repoItem.provider] || ''} {repoItem.model}</>
-                          : 'Template'}
-                      </span>
-                      {repoItem.pending && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Loader2 size={11} className="spin" /> AI version on the way…
-                        </span>
-                      )}
-                      {repoItem.evidence === 'thin' && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#fbbf24' }} title="No usable README and few descriptive commit messages, so these bullets rest on the repo description and file names only">
-                          <AlertCircle size={12} /> Limited info in this repo: review these bullets, or add a README with a Features section
-                        </span>
-                      )}
-                      {repoItem.unverified?.length > 0 && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#fbbf24' }}>
-                          <AlertCircle size={12} /> Check before using: {repoItem.unverified.join(', ')} not found in the repo
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Per-Project Link Controls Toolbar */}
-                    <div className="project-links-bar">
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: '600' }}>Links:</span>
-                      
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: config.showGithub ? '#ffffff' : 'var(--text-muted)' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={config.showGithub} 
-                          onChange={(e) => updateProjectLinkConfig(repoItem.repoId, { showGithub: e.target.checked })} 
-                          style={{ accentColor: '#ffffff' }}
-                        />
-                        <Github size={12} /> GitHub Link
+                      <label>
+                        <input type="checkbox" checked={config.showGithub} onChange={(e) => updateProjectLinkConfig(repoItem.repoId, { showGithub: e.target.checked })} />
+                        GitHub link
                       </label>
-
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: config.showDemo ? '#ffffff' : 'var(--text-muted)' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={config.showDemo} 
-                          onChange={(e) => updateProjectLinkConfig(repoItem.repoId, { showDemo: e.target.checked })} 
-                          style={{ accentColor: '#ffffff' }}
-                        />
-                        <Globe size={12} /> Live Demo
+                      <label>
+                        <input type="checkbox" checked={config.showDemo} onChange={(e) => updateProjectLinkConfig(repoItem.repoId, { showDemo: e.target.checked })} />
+                        Demo link
                       </label>
-
                       {config.showDemo && (
-                        <div className="demo-url-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>URL:</span>
-                          <input 
-                            type="url"
-                            className="input-field"
-                            placeholder="https://app.vercel.app..."
-                            value={config.demoUrl || ''}
-                            onChange={(e) => updateProjectLinkConfig(repoItem.repoId, { demoUrl: e.target.value })}
-                            style={{ padding: '2px 6px', fontSize: '0.74rem', height: '22px', width: '180px' }}
-                          />
-                        </div>
+                        <input
+                          type="url"
+                          placeholder="https://your-demo.app"
+                          value={config.demoUrl || ''}
+                          onChange={(e) => updateProjectLinkConfig(repoItem.repoId, { demoUrl: e.target.value })}
+                          aria-label={`Demo URL for ${repoItem.repoName}`}
+                        />
                       )}
                     </div>
 
-                    {/* Bullet Points List */}
-                    <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                    {repoItem.evidence === 'thin' && (
+                      <p className="flag"><AlertCircle size={13} aria-hidden="true" /> This repo has little to go on (no README, few commit messages). Check these bullets, or add a README with a Features section.</p>
+                    )}
+                    {repoItem.unverified?.length > 0 && (
+                      <p className="flag"><AlertCircle size={13} aria-hidden="true" /> {repoItem.unverified.join(', ')} isn't in the repo. Verify or remove before using.</p>
+                    )}
+
+                    <div className="resume-head">
+                      <span className="resume-title">{repoItem.repoName}</span>
+                      <span className="resume-links">
+                        {config.showGithub && repoItem.html_url && <a href={repoItem.html_url} target="_blank" rel="noreferrer">GitHub</a>}
+                        {config.showDemo && config.demoUrl && <a href={config.demoUrl} target="_blank" rel="noreferrer">Demo</a>}
+                      </span>
+                      <span className="resume-stack">{repoItem.techStack.join(', ')}</span>
+                    </div>
+
+                    <ul>
                       {repoItem.bullets.map((bullet, bulletIndex) => (
                         // Keyed on the text so a regenerate remounts the contentEditable instead of
                         // React patching a text node the user's typing may have replaced
-                        <li key={`${bulletIndex}:${bullet}`} style={{ fontSize: '0.88rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                        <li key={`${bulletIndex}:${bullet}`}>
                           <span
+                            className="editable"
                             // Editing a bullet that's about to be replaced would lose the edit
                             contentEditable={!repoItem.pending}
                             suppressContentEditableWarning
                             onBlur={(e) => onBulletEdit(repoIndex, bulletIndex, e.target.innerText)}
-                            style={{ outline: 'none', borderBottom: '1px dashed transparent', transition: 'border 0.2s' }}
-                            onFocus={(e) => e.target.style.borderBottom = '1px dashed #ffffff'}
                           >
                             {bullet}
                           </span>
@@ -616,140 +463,58 @@ export default function ResumePreview({
                   </div>
                 );
               })}
-            </div>
-          )}
+            </article>
+          </>
+        ) : (
+          <pre className="code-view">
+            {viewMode === 'markdown' && getMarkdownText()}
+            {viewMode === 'latex' && getLatexText()}
+            {viewMode === 'json' && getJsonText()}
+          </pre>
+        )}
+      </div>
 
-          {/* Raw Code Views */}
-          {viewMode !== 'formatted' && (
-            <div style={{ position: 'relative' }}>
-              <pre className="font-mono" style={{
-                background: '#0a0a0c',
-                border: '1px solid var(--border-muted)',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px',
-                fontSize: '0.82rem',
-                color: '#f4f4f5',
-                whiteSpace: 'pre-wrap',
-                maxHeight: '500px',
-                overflowY: 'auto'
-              }}>
-                {viewMode === 'markdown' && getMarkdownText()}
-                {viewMode === 'latex' && getLatexText()}
-                {viewMode === 'json' && getJsonText()}
-              </pre>
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* Footer Regenerate & Specific Request Actions */}
-      {generatedBullets.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', flexShrink: 0 }}>
-          
-          {/* Expandable Custom Instruction Input Bar */}
+      {hasBullets && (
+        <div className="regen">
           {isCustomPromptOpen && (
-            <div className="glass-panel animate-fade-in-up" style={{ padding: '12px 14px', background: '#121216', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-accent)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Wand2 size={14} color="#ffffff" /> Regenerate with Specific Request
-                </span>
-                <button type="button" className="btn-ghost" onClick={() => setIsCustomPromptOpen(false)} style={{ padding: '2px', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Quick Suggestion Chips */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {[
-                  'Emphasize features and integrations from the README',
-                  'Highlight testing, security & code coverage',
-                  'Focus on microservice backend architecture',
-                  'Make concise for a 1-page resume'
-                ].map(chip => (
-                  <button
-                    key={chip}
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setCustomPromptText(chip)}
-                    style={{ fontSize: '0.73rem', padding: '3px 9px', height: '24px', borderRadius: '12px', background: '#18181b', border: '1px solid #27272a' }}
-                  >
-                    {chip}
-                  </button>
+            <>
+              <div className="chips">
+                {SUGGESTIONS.map(chip => (
+                  <button key={chip} type="button" className="chip" onClick={() => setCustomPromptText(chip)}>{chip}</button>
                 ))}
               </div>
-
-              {/* Custom Input & Send Action */}
-              <form onSubmit={handleCustomRegenerateSubmit} style={{ display: 'flex', gap: '8px' }}>
+              <form onSubmit={handleCustomRegenerateSubmit}>
                 <input
                   type="text"
-                  className="input-field"
-                  placeholder="e.g. Focus more on Redis caching, Docker, and AWS deployment..."
+                  className="field"
+                  placeholder="e.g. Focus on the Redis caching and the Docker setup"
                   value={customPromptText}
                   onChange={(e) => setCustomPromptText(e.target.value)}
-                  style={{ height: '36px', fontSize: '0.82rem', background: '#0a0a0c' }}
+                  aria-label="Instruction for rewriting the bullets"
+                  autoFocus
                 />
-                <button type="submit" className="btn btn-primary btn-sm" disabled={isGenerating || !customPromptText.trim()} style={{ height: '36px', padding: '0 14px', gap: '6px', whiteSpace: 'nowrap' }}>
-                  <Send size={13} /> Generate
+                <button type="submit" className="btn btn-primary" disabled={isGenerating || !customPromptText.trim()}>
+                  Rewrite
                 </button>
               </form>
-            </div>
+            </>
           )}
-
-          {/* Bottom Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-            <button 
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setIsCustomPromptOpen(!isCustomPromptOpen)}
-              style={{ fontSize: '0.78rem', gap: '6px', borderStyle: 'dashed' }}
-            >
-              <Wand2 size={13} />
-              <span>{isCustomPromptOpen ? 'Close Custom Request' : 'Regenerate with Specific Prompt...'}</span>
+          <div className="regen-row">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIsCustomPromptOpen(!isCustomPromptOpen)}>
+              <Wand2 size={14} aria-hidden="true" /> {isCustomPromptOpen ? 'Hide instructions' : 'Rewrite with instructions'}
             </button>
-
-            <button 
-              type="button" 
-              className="btn btn-secondary btn-sm"
-              onClick={() => onRegenerate()}
-              disabled={isGenerating}
-              style={{ fontSize: '0.78rem', gap: '6px' }}
-            >
-              <RefreshCw size={13} className={isGenerating ? 'spin' : ''} />
-              <span>Standard Regenerate</span>
+            <span className="toolbar-spacer" />
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onRegenerate()} disabled={isGenerating}>
+              <RefreshCw size={14} className={isGenerating ? 'spin' : ''} aria-hidden="true" /> Regenerate
             </button>
           </div>
-
         </div>
       )}
-
-    </div>
+    </section>
   );
 }
 
-function itemLinkBadge(url, label, icon) {
-  if (!url) return null;
-  return (
-    <a 
-      href={url} 
-      target="_blank" 
-      rel="noreferrer"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        fontSize: '0.72rem',
-        color: '#f4f4f5',
-        background: '#18181b',
-        padding: '2px 8px',
-        borderRadius: '4px',
-        border: '1px solid #27272a',
-        textDecoration: 'none',
-        whiteSpace: 'nowrap',
-        flexShrink: 0
-      }}
-    >
-      {icon} <span>{label}</span> <ExternalLink size={10} style={{ flexShrink: 0 }} />
-    </a>
-  );
+// "openai/gpt-oss-120b" -> "gpt-oss-120b"
+function shortModel(model) {
+  return (model || '').split('/').pop();
 }
