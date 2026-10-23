@@ -97,7 +97,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+Open `http://localhost:3000` in your browser.
 
 ---
 
@@ -106,14 +106,15 @@ Open `http://localhost:5173` in your browser.
 Create a `.env.local` file in the project root:
 
 ```env
-# Optional: Set default Gemini API Key for zero-setup deployments
+# Optional: default Gemini API key for local development
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
-
-# Optional: Set GitHub Personal Access Token to boost rate limits (60 -> 5,000 req/hr)
-VITE_GITHUB_TOKEN=your_github_token_here
 ```
 
+> ⚠️ **Never set `VITE_GEMINI_API_KEY` on a public deployment.** Every `VITE_` variable is compiled into the JavaScript bundle, so anyone can read the key from your site. Google detects keys exposed this way and revokes them as leaked. For public deployments, leave it unset and have each user add their own key in **Settings** (stored only in their browser).
+
 *Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).*
+
+A GitHub Personal Access Token can be added in **Settings** to raise the GitHub API limit from 60 to 5,000 requests/hour. Without one, generating bullets for many repositories can hit the limit, since each selected repo costs a few API calls (README, file listing, manifests, commit count).
 
 ---
 

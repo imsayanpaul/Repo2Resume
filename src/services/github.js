@@ -92,6 +92,27 @@ export const DEMO_PROFILES = {
   }
 };
 
+function buildHeaders(personalToken, accept = 'application/vnd.github+json') {
+  const headers = { 'Accept': accept };
+  if (personalToken) headers['Authorization'] = `Bearer ${personalToken}`;
+  return headers;
+}
+
+/**
+ * Turn a failed GitHub response into a user-facing error.
+ * GitHub signals rate limiting with 403 or 429 and x-ratelimit-remaining: 0.
+ */
+function githubError(res, fallbackMsg) {
+  const remaining = res.headers.get('x-ratelimit-remaining');
+  if (res.status === 429 || (res.status === 403 && remaining === '0')) {
+    return new Error('GitHub API rate limit exceeded. Please add a Personal Access Token in Settings.');
+  }
+  if (res.status === 401) {
+    return new Error('GitHub rejected the Personal Access Token (401). Check or remove it in Settings.');
+  }
+  return new Error(`${fallbackMsg} (${res.status}).`);
+}
+
 /**
  * Fetch GitHub user profile and repositories
  */
@@ -101,41 +122,39 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
     throw new Error('Please enter a valid GitHub username or profile URL.');
   }
 
-  const headers = {
-    'Accept': 'application/vnd.github.v3+json'
-  };
-  
-  if (personalToken) {
-    headers['Authorization'] = `token ${personalToken}`;
-  }
+  const headers = buildHeaders(personalToken);
 
   // 1. Fetch User Profile
-  const userRes = await fetch(`https://api.github.com/users/${username}`, { headers });
+  const userRes = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, { headers });
   if (!userRes.ok) {
     if (userRes.status === 404) {
       throw new Error(`GitHub user "${username}" not found.`);
     }
-    if (userRes.status === 403) {
-      throw new Error(`GitHub API rate limit exceeded. Please add a Personal Access Token in Settings.`);
-    }
-    throw new Error(`Failed to fetch user profile (${userRes.status}).`);
+    throw githubError(userRes, 'Failed to fetch user profile');
   }
   const userProfile = await userRes.json();
 
-  // 2. Fetch Repositories
-  const repoRes = await fetch(`https://api.github.com/users/${username}/repos?sort=updated&per_page=100`, { headers });
-  if (!repoRes.ok) {
-    throw new Error(`Failed to fetch repositories for "${username}".`);
+  // 2. Fetch Repositories (paginated, up to 500)
+  const rawRepos = [];
+  for (let page = 1; page <= 5; page++) {
+    const repoRes = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100&page=${page}`, { headers });
+    if (!repoRes.ok) {
+      throw githubError(repoRes, `Failed to fetch repositories for "${username}"`);
+    }
+    const pageRepos = await repoRes.json();
+    rawRepos.push(...pageRepos);
+    if (pageRepos.length < 100) break;
   }
-  const rawRepos = await repoRes.json();
 
-  // Filter out forks if preferred, keep non-empty repos
+  // Forks are other people's work and the <username>/<username> repo is the
+  // profile README, so neither belongs in a resume's Projects section
   const repos = rawRepos
-    .filter(r => !r.fork || r.stargazers_count > 0)
+    .filter(r => !r.fork && r.name.toLowerCase() !== userProfile.login.toLowerCase())
     .map(r => ({
       id: r.id,
       name: r.name,
       full_name: r.full_name,
+      owner: r.owner?.login || userProfile.login,
       description: r.description || 'No description provided.',
       html_url: r.html_url,
       language: r.language || 'Codebase',
@@ -143,9 +162,10 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
       forks_count: r.forks_count,
       topics: r.topics || [],
       updated_at: r.updated_at,
-      languages_breakdown: { [r.language || 'Codebase']: 100 },
+      languages_breakdown: r.language ? { [r.language]: 100 } : {},
       detected_deps: extractFallbackDepsFromRepo(r),
-      commits_count: Math.floor(Math.random() * 80) + 15 // Estimated for standard repos
+      commits_count: null, // Real count is filled in by enrichRepoDetails for selected repos
+      enriched: false
     }));
 
   return {
@@ -165,19 +185,142 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
  */
 export async function fetchRepoReadme(fullName, personalToken = '') {
   if (!fullName) return '';
-  try {
-    const headers = { 'Accept': 'application/vnd.github.v3.raw' };
-    if (personalToken) headers['Authorization'] = `token ${personalToken}`;
-    
-    const res = await fetch(`https://api.github.com/repos/${fullName}/readme`, { headers });
-    if (res.ok) {
-      const text = await res.text();
-      return text.slice(0, 1500); // Excerpt 1500 chars max for prompt
+  const text = await fetchRaw(`https://api.github.com/repos/${fullName}/readme`, personalToken);
+  return text.slice(0, 2000); // Excerpt for prompt
+}
+
+/**
+ * Fetch real detail for a selected repository: dependencies from root
+ * manifests and the owner's commit count. Costs 2-4 API calls, so it only
+ * runs for repos the user generates bullets for.
+ * Mutates and returns the repo. Each lookup is best-effort.
+ */
+export async function enrichRepoDetails(repo, personalToken = '') {
+  if (!repo?.full_name || repo.enriched) return repo;
+  const headers = buildHeaders(personalToken);
+  const api = `https://api.github.com/repos/${repo.full_name}`;
+
+  const [rootFiles, commits] = await Promise.all([
+    fetchJson(`${api}/contents/`, headers),
+    fetchCommitCount(api, repo.owner, headers)
+  ]);
+
+  const deps = new Set(repo.detected_deps || []);
+  if (Array.isArray(rootFiles)) {
+    const byName = new Map(rootFiles.map(f => [f.name.toLowerCase(), f.name]));
+    if (['dockerfile', 'docker-compose.yml', 'docker-compose.yaml', 'compose.yaml'].some(n => byName.has(n))) deps.add('Docker');
+    if (byName.has('tsconfig.json')) deps.add('TypeScript');
+    if (byName.has('.github')) {
+      const workflows = await fetchJson(`${api}/contents/.github/workflows`, headers);
+      if (Array.isArray(workflows) && workflows.length > 0) deps.add('GitHub Actions');
     }
+
+    const manifests = ['package.json', 'requirements.txt', 'pyproject.toml', 'go.mod', 'cargo.toml'].filter(n => byName.has(n));
+    const texts = await Promise.all(manifests.map(n => fetchRaw(`${api}/contents/${byName.get(n)}`, personalToken)));
+    manifests.forEach((file, i) => {
+      if (texts[i]) detectDepsFromManifest(file, texts[i]).forEach(d => deps.add(d));
+    });
+  }
+  repo.detected_deps = Array.from(deps);
+
+  if (typeof commits === 'number') repo.commits_count = commits;
+  // A rate-limited or failed pass is retried on the next generate
+  repo.enriched = Array.isArray(rootFiles);
+  return repo;
+}
+
+async function fetchJson(url, headers) {
+  try {
+    const res = await fetch(url, { headers });
+    if (res.ok) return await res.json();
   } catch (err) {
-    console.warn(`Could not fetch README for ${fullName}:`, err);
+    console.warn(`GitHub request failed: ${url}`, err);
+  }
+  return null;
+}
+
+async function fetchRaw(url, personalToken) {
+  try {
+    const res = await fetch(url, { headers: buildHeaders(personalToken, 'application/vnd.github.raw') });
+    if (res.ok) return await res.text();
+  } catch (err) {
+    console.warn(`GitHub request failed: ${url}`, err);
   }
   return '';
+}
+
+/**
+ * Count the owner's commits from the Link header of a one-per-page listing.
+ */
+async function fetchCommitCount(api, owner, headers) {
+  try {
+    const authorParam = owner ? `&author=${encodeURIComponent(owner)}` : '';
+    const res = await fetch(`${api}/commits?per_page=1${authorParam}`, { headers });
+    if (!res.ok) return null; // 409 = empty repository
+    const last = (res.headers.get('link') || '').match(/[?&]page=(\d+)>;\s*rel="last"/);
+    if (last) return parseInt(last[1], 10);
+    const body = await res.json();
+    return Array.isArray(body) ? body.length : null;
+  } catch {
+    return null;
+  }
+}
+
+// Package name -> display name, for manifest-based detection
+const MANIFEST_PACKAGES = {
+  // JavaScript / TypeScript
+  react: 'React', 'react-native': 'React Native', next: 'Next.js', vue: 'Vue.js', nuxt: 'Nuxt.js',
+  '@angular/core': 'Angular', svelte: 'Svelte', '@sveltejs/kit': 'SvelteKit', vite: 'Vite',
+  tailwindcss: 'Tailwind CSS', express: 'Express', fastify: 'Fastify', '@nestjs/core': 'NestJS',
+  koa: 'Koa', 'socket.io': 'Socket.io', ws: 'WebSockets', graphql: 'GraphQL', '@apollo/server': 'Apollo GraphQL',
+  '@trpc/server': 'tRPC', prisma: 'Prisma', '@prisma/client': 'Prisma', 'drizzle-orm': 'Drizzle ORM',
+  mongoose: 'Mongoose', mongodb: 'MongoDB', pg: 'PostgreSQL', mysql2: 'MySQL', redis: 'Redis', ioredis: 'Redis',
+  sequelize: 'Sequelize', typeorm: 'TypeORM', firebase: 'Firebase', '@supabase/supabase-js': 'Supabase',
+  stripe: 'Stripe', openai: 'OpenAI API', '@anthropic-ai/sdk': 'Claude API', '@google/generative-ai': 'Gemini API',
+  '@google/genai': 'Gemini API', langchain: 'LangChain', redux: 'Redux', '@reduxjs/toolkit': 'Redux',
+  zustand: 'Zustand', '@tanstack/react-query': 'React Query', jest: 'Jest', vitest: 'Vitest', cypress: 'Cypress',
+  '@playwright/test': 'Playwright', electron: 'Electron', '@tauri-apps/api': 'Tauri', three: 'Three.js',
+  d3: 'D3.js', 'chart.js': 'Chart.js', jsonwebtoken: 'JWT', passport: 'Passport.js', 'next-auth': 'NextAuth',
+  typescript: 'TypeScript', jszip: 'JSZip',
+  // Python
+  fastapi: 'FastAPI', django: 'Django', flask: 'Flask', sqlalchemy: 'SQLAlchemy', pandas: 'Pandas', numpy: 'NumPy',
+  'scikit-learn': 'scikit-learn', torch: 'PyTorch', tensorflow: 'TensorFlow', transformers: 'Hugging Face Transformers',
+  'google-generativeai': 'Gemini API', 'google-genai': 'Gemini API', anthropic: 'Claude API', pytest: 'PyTest',
+  celery: 'Celery', streamlit: 'Streamlit', selenium: 'Selenium', playwright: 'Playwright', beautifulsoup4: 'BeautifulSoup',
+  pydantic: 'Pydantic', uvicorn: 'Uvicorn', psycopg2: 'PostgreSQL', 'psycopg2-binary': 'PostgreSQL', psycopg: 'PostgreSQL',
+  pymongo: 'MongoDB', supabase: 'Supabase', boto3: 'AWS', 'opencv-python': 'OpenCV', pyperclip: 'Pyperclip',
+  pyqt5: 'PyQt', pyqt6: 'PyQt', pyside6: 'PySide',
+  // Go / Rust
+  'github.com/gin-gonic/gin': 'Gin', 'github.com/gofiber/fiber': 'Fiber', 'google.golang.org/grpc': 'gRPC',
+  tokio: 'Tokio', 'actix-web': 'Actix', axum: 'Axum', serde: 'Serde'
+};
+
+function detectDepsFromManifest(file, text) {
+  const found = new Set();
+  const add = (pkg) => {
+    const display = MANIFEST_PACKAGES[(pkg || '').trim().toLowerCase()];
+    if (display) found.add(display);
+  };
+
+  if (file === 'package.json') {
+    try {
+      const pkg = JSON.parse(text);
+      Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).forEach(add);
+    } catch { /* malformed package.json */ }
+  } else if (file === 'requirements.txt') {
+    text.split(/\r?\n/).forEach(line => add(line.split(/[<>=!~[;#\s]/)[0]));
+  } else if (file === 'pyproject.toml') {
+    (text.match(/["'][A-Za-z0-9_.-]+(?=[\s<>=!~[;"'])/g) || []).forEach(m => add(m.slice(1)));
+    (text.match(/^[A-Za-z0-9_-]+(?=\s*=)/gm) || []).forEach(add);
+  } else if (file === 'go.mod') {
+    Object.keys(MANIFEST_PACKAGES)
+      .filter(k => k.includes('/') && text.includes(k))
+      .forEach(k => found.add(MANIFEST_PACKAGES[k]));
+  } else if (file === 'cargo.toml') {
+    const depsSection = text.split(/^\[dependencies\]/m)[1]?.split(/^\[/m)[0] || '';
+    (depsSection.match(/^[A-Za-z0-9_-]+(?=\s*=)/gm) || []).forEach(add);
+  }
+  return Array.from(found);
 }
 
 /**

@@ -30,7 +30,31 @@ const TONES = [
   }
 ];
 
-export default function ResumePreview({ 
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Characters like % (comment), & (alignment), # and _ break pdflatex if left raw
+const LATEX_REPLACEMENTS = {
+  '\\': '\\textbackslash{}', '~': '\\textasciitilde{}', '^': '\\textasciicircum{}',
+  '<': '\\textless{}', '>': '\\textgreater{}'
+};
+
+function escapeLatex(str) {
+  // Single pass, so braces added by one replacement aren't escaped by another
+  return String(str ?? '').replace(/[\\~^<>&%$#_{}]/g, ch => LATEX_REPLACEMENTS[ch] || `\\${ch}`);
+}
+
+// URLs go inside \href{}, where only %, # and \ need escaping
+function escapeLatexUrl(url) {
+  return String(url ?? '').replace(/([%#\\])/g, '\\$1');
+}
+
+export default function ResumePreview({
   generatedBullets, 
   onToneChange, 
   activeTone, 
@@ -90,21 +114,21 @@ export default function ResumePreview({
       const config = getProjectLinkConfig(item.repoId);
       const links = [];
       if (config.showGithub && item.html_url) {
-        links.push(`<a href="${item.html_url}" style="color: #2563eb; text-decoration: none;">GitHub</a>`);
+        links.push(`<a href="${escapeHtml(item.html_url)}" style="color: #2563eb; text-decoration: none;">GitHub</a>`);
       }
       if (config.showDemo && config.demoUrl) {
-        links.push(`<a href="${config.demoUrl}" style="color: #2563eb; text-decoration: none;">Live Demo</a>`);
+        links.push(`<a href="${escapeHtml(config.demoUrl)}" style="color: #2563eb; text-decoration: none;">Live Demo</a>`);
       }
       const linkSuffix = links.length > 0 ? ` &nbsp;|&nbsp; ${links.join(' &nbsp;|&nbsp; ')}` : '';
-      const bulletsList = item.bullets.map(b => `<li style="margin-bottom: 4px;">${b}</li>`).join('');
+      const bulletsList = item.bullets.map(b => `<li style="margin-bottom: 4px;">${escapeHtml(b)}</li>`).join('');
 
       return `
         <div style="margin-bottom: 18px; font-family: Arial, sans-serif;">
           <div style="font-size: 13pt; font-weight: bold; color: #111827;">
-            ${item.repoName}${linkSuffix}
+            ${escapeHtml(item.repoName)}${linkSuffix}
           </div>
           <div style="font-size: 10pt; color: #4b5563; margin-top: 2px; margin-bottom: 6px;">
-            <strong>Technologies:</strong> ${item.techStack.join(', ')}
+            <strong>Technologies:</strong> ${escapeHtml(item.techStack.join(', '))}
           </div>
           <ul style="margin-top: 4px; margin-bottom: 8px; padding-left: 22px; font-size: 10.5pt; color: #1f2937; line-height: 1.45;">
             ${bulletsList}
@@ -121,12 +145,13 @@ export default function ResumePreview({
     return generatedBullets.map(item => {
       const config = getProjectLinkConfig(item.repoId);
       const latexLinks = [];
-      if (config.showGithub && item.html_url) latexLinks.push(`\\href{${item.html_url}}{\\emph{GitHub}}`);
-      if (config.showDemo && config.demoUrl) latexLinks.push(`\\href{${config.demoUrl}}{\\emph{Live Demo}}`);
+      if (config.showGithub && item.html_url) latexLinks.push(`\\href{${escapeLatexUrl(item.html_url)}}{\\emph{GitHub}}`);
+      if (config.showDemo && config.demoUrl) latexLinks.push(`\\href{${escapeLatexUrl(config.demoUrl)}}{\\emph{Live Demo}}`);
 
       const linksStr = latexLinks.length > 0 ? ` $|$ ${latexLinks.join(' $|$ ')}` : '';
-      const bulletsText = item.bullets.map(b => `    \\item ${b}`).join('\n');
-      return `\\resumeProjectHeading\n    {\\textbf{${item.repoName}}${linksStr} $|$ \\emph{${item.techStack.join(', ')}}}{}\n    \\resumeItemListStart\n${bulletsText}\n    \\resumeItemListEnd`;
+      // Jake's template defines \resumeItem; a bare \item inside \resumeItemListStart loses its formatting
+      const bulletsText = item.bullets.map(b => `      \\resumeItem{${escapeLatex(b)}}`).join('\n');
+      return `\\resumeProjectHeading\n    {\\textbf{${escapeLatex(item.repoName)}}${linksStr} $|$ \\emph{${escapeLatex(item.techStack.join(', '))}}}{}\n    \\resumeItemListStart\n${bulletsText}\n    \\resumeItemListEnd`;
     }).join('\n\n');
   };
 
@@ -445,7 +470,7 @@ export default function ResumePreview({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#ffffff', padding: '12px', background: '#18181b', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-muted)' }}>
             <Loader2 size={16} className="spin" />
             <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>
-              Gemini AI is analyzing codebase & generating ATS bullets...
+              Analyzing repositories & generating ATS bullets...
             </span>
           </div>
 
@@ -465,7 +490,7 @@ export default function ResumePreview({
             No Resume Bullets Generated Yet
           </h3>
           <p style={{ maxWidth: '380px', margin: '0 auto', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Select repositories from the left panel and click <strong>"Generate Resume Text"</strong> to build ATS-optimized project bullets.
+            Select repositories from the left panel and click <strong>"Generate Resume Bullets"</strong> to build ATS-optimized project bullets.
           </p>
         </div>
       ) : (
@@ -545,7 +570,9 @@ export default function ResumePreview({
                     {/* Bullet Points List */}
                     <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
                       {repoItem.bullets.map((bullet, bulletIndex) => (
-                        <li key={bulletIndex} style={{ fontSize: '0.88rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                        // Keyed on the text so a regenerate remounts the contentEditable instead of
+                        // React patching a text node the user's typing may have replaced
+                        <li key={`${bulletIndex}:${bullet}`} style={{ fontSize: '0.88rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
                           <span
                             contentEditable
                             suppressContentEditableWarning

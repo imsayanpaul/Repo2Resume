@@ -5,7 +5,7 @@ import ResumePreview from './components/ResumePreview';
 import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import Footer from './components/Footer';
-import { fetchUserRepos, fetchRepoReadme } from './services/github';
+import { fetchUserRepos, fetchRepoReadme, enrichRepoDetails } from './services/github';
 import { generateRepoBullets } from './services/resumeEngine';
 import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
 
@@ -48,28 +48,54 @@ export default function App() {
 
     try {
       const selectedRepos = repos.filter(r => selectedRepoIds.includes(r.id));
-      const results = [];
+      const results = new Array(selectedRepos.length);
+      const aiErrors = new Set();
+      let templateCount = 0;
 
-      for (const repo of selectedRepos) {
-        if (!repo.readmeText) {
-          repo.readmeText = await fetchRepoReadme(repo.full_name, githubToken);
+      const generateOne = async (repo, index) => {
+        if (!repo.enriched) {
+          const [readmeText] = await Promise.all([
+            fetchRepoReadme(repo.full_name, githubToken),
+            enrichRepoDetails(repo, githubToken)
+          ]);
+          repo.readmeText = readmeText;
         }
-        const bullets = await generateRepoBullets(repo, toneToUse, geminiApiKey, jdKeywords, customInstruction);
-        results.push({
+        // A rejected key fails identically for every repo, so stop retrying it
+        const keyRejected = [...aiErrors].some(e => e.includes('rejected the API key'));
+        const { bullets, source, aiError } = await generateRepoBullets(repo, toneToUse, keyRejected ? '' : geminiApiKey, jdKeywords, customInstruction);
+        if (aiError) aiErrors.add(aiError);
+        if (source === 'heuristic' && geminiApiKey) templateCount++;
+        results[index] = {
           repoId: repo.id,
           repoName: repo.name,
           description: repo.description,
           techStack: repo.detected_deps?.length > 0 ? repo.detected_deps : [repo.language],
           bullets,
           html_url: repo.html_url
-        });
-      }
+        };
+      };
+
+      // A few repos at a time: Gemini calls can take many seconds each,
+      // but firing all of them at once trips the free-tier rate limit
+      const CONCURRENCY = 3;
+      let next = 0;
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, selectedRepos.length) }, async () => {
+        while (next < selectedRepos.length) {
+          const index = next++;
+          await generateOne(selectedRepos[index], index);
+        }
+      }));
 
       setGeneratedBullets(results);
       setBulletsCache(prev => ({
         ...prev,
         [toneToUse]: results
       }));
+
+      if (aiErrors.size > 0) {
+        const scope = templateCount === results.length ? 'these bullets come' : `${templateCount} of ${results.length} projects come`;
+        setErrorMsg(`Gemini AI failed, so ${scope} from the offline template engine. ${[...aiErrors][0]}`);
+      }
     } catch (err) {
       console.error('Error generating bullets:', err);
       const msg = err.message || '';
@@ -81,7 +107,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [repos, selectedRepoIds, activeTone, geminiApiKey, jdKeywords, bulletsCache]);
+  }, [repos, selectedRepoIds, activeTone, geminiApiKey, githubToken, jdKeywords, bulletsCache]);
 
   // Fetch Live GitHub User Repos
   const handleSearchUser = async (username) => {
@@ -128,17 +154,15 @@ export default function App() {
 
   // Inline Bullet Edit Handler
   const handleBulletEdit = (repoIndex, bulletIndex, newText) => {
-    setGeneratedBullets(prev => {
-      const next = [...prev];
-      next[repoIndex].bullets[bulletIndex] = newText;
-      
-      setBulletsCache(cache => ({
-        ...cache,
-        [activeTone]: next
-      }));
-
-      return next;
+    const next = generatedBullets.map((item, i) => i !== repoIndex ? item : {
+      ...item,
+      bullets: item.bullets.map((b, j) => j === bulletIndex ? newText : b)
     });
+    setGeneratedBullets(next);
+    setBulletsCache(cache => ({
+      ...cache,
+      [activeTone]: next
+    }));
   };
 
   // Tone Change Handler
@@ -254,7 +278,7 @@ export default function App() {
             {/* Quick Profile Suggestions */}
             <div className="sample-profiles-container" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               <span>Sample profiles:</span>
-              {['imsayanpaul', 'gaearon', 'yyx99', 'torvalds'].map(name => (
+              {['imsayanpaul', 'gaearon', 'yyx990803', 'torvalds'].map(name => (
                 <button
                   key={name}
                   type="button"

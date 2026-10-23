@@ -66,24 +66,34 @@ export async function injectProjectsIntoDocx(docxFile, projectEntries, linkConfi
   // Analyze existing project formatting from the resume
   const existingStyles = extractExistingProjectStyles(paragraphs, wNs, projectHeadingIdx, nextSectionIdx);
   
+  // Hyperlinks need a relationship entry in document.xml.rels
+  const relsPath = 'word/_rels/document.xml.rels';
+  const relsFile = zip.file(relsPath);
+  const relsDoc = relsFile
+    ? parser.parseFromString(await relsFile.async('string'), 'application/xml')
+    : parser.parseFromString('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>', 'application/xml');
+  const addHyperlinkRel = createHyperlinkRelAdder(relsDoc);
+
   // Generate OOXML paragraph nodes matching existing formatting
-  const newNodes = generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, existingStyles);
-  
-  // Insert the new nodes at the insertion point (before next section)
-  if (insertionPoint) {
-    for (const node of newNodes) {
-      body.insertBefore(node, insertionPoint);
-    }
-  } else {
-    // Append to body if Projects is the last section
-    for (const node of newNodes) {
-      body.appendChild(node);
-    }
+  const newNodes = generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, existingStyles, addHyperlinkRel);
+
+  // Paragraphs can only be inserted as direct children of <w:body>. If the next
+  // heading sits inside a table or content control, insert before that container.
+  let anchor = insertionPoint ? topLevelAncestor(insertionPoint, body) : null;
+  if (!anchor) {
+    // Projects is the last section: <w:sectPr> must stay the final child of <w:body>
+    const lastChild = Array.from(body.childNodes).filter(n => n.nodeType === 1).pop();
+    if (lastChild && lastChild.localName === 'sectPr') anchor = lastChild;
   }
-  
+  for (const node of newNodes) {
+    if (anchor) body.insertBefore(node, anchor);
+    else body.appendChild(node);
+  }
+
   const serializer = new XMLSerializer();
   const modifiedXml = serializer.serializeToString(xmlDoc);
   zip.file('word/document.xml', modifiedXml);
+  zip.file(relsPath, serializer.serializeToString(relsDoc));
   
   const modifiedBlob = await zip.generateAsync({
     type: 'blob',
@@ -91,6 +101,33 @@ export async function injectProjectsIntoDocx(docxFile, projectEntries, linkConfi
   });
   
   return modifiedBlob;
+}
+
+function topLevelAncestor(node, body) {
+  let current = node;
+  while (current && current.parentNode !== body) {
+    current = current.parentNode;
+  }
+  return current;
+}
+
+function createHyperlinkRelAdder(relsDoc) {
+  const relNs = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const root = relsDoc.documentElement;
+  const usedIds = new Set(Array.from(root.getElementsByTagNameNS(relNs, 'Relationship')).map(r => r.getAttribute('Id')));
+  let counter = 1;
+  return (url) => {
+    while (usedIds.has(`rIdR2R${counter}`)) counter++;
+    const id = `rIdR2R${counter}`;
+    usedIds.add(id);
+    const rel = relsDoc.createElementNS(relNs, 'Relationship');
+    rel.setAttribute('Id', id);
+    rel.setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink');
+    rel.setAttribute('Target', url);
+    rel.setAttribute('TargetMode', 'External');
+    root.appendChild(rel);
+    return id;
+  };
 }
 
 function createNamespaceResolver(xmlDoc) {
@@ -144,10 +181,20 @@ function findProjectsSectionBoundary(paragraphs, wNs) {
     if (projectHeadingIdx !== -1 && nextSectionIdx === -1) {
       if (!cleanText || i <= projectHeadingIdx + 1) continue;
       
-      const matchesKeyword = SECTION_HEADINGS.some(h => cleanText === h || cleanText.startsWith(h) || cleanText.includes(h));
+      // Project titles like "Interview Experience Simulator" or "Resume Summary Tool" contain
+      // section words too, so a partial keyword match also needs heading-like formatting
+      // and must not look like a title line (pipes, commas, long text)
+      const isExactSection = SECTION_HEADINGS.includes(cleanText);
+      const looksLikeTitleLine = /[|,–—]/.test(rawText) || cleanText.split(/\s+/).length > 4;
+      const startsWithSection = SECTION_HEADINGS.some(h => cleanText.startsWith(h + ' ') || cleanText.endsWith(' ' + h));
+      const hasHeadingFormat = isHeadingStyle || hasShading || (isAllCaps && isBold);
       const isNotProject = !PROJECT_HEADINGS.some(h => cleanText === h);
-      
-      if (isNotProject && isShortText && (matchesKeyword || (isAllCaps && (isHeadingStyle || isBold || hasShading)))) {
+
+      if (isNotProject && isShortText && (
+        isExactSection ||
+        (!looksLikeTitleLine && startsWithSection && (hasHeadingFormat || isBold || isAllCaps)) ||
+        (!looksLikeTitleLine && isAllCaps && (isHeadingStyle || isBold || hasShading))
+      )) {
         nextSectionIdx = i;
         break;
       }
@@ -311,14 +358,14 @@ function extractExistingProjectStyles(paragraphs, wNs, headingIdx, nextSectionId
  * Generate OOXML paragraph nodes for each project entry,
  * matching the existing formatting styles from the resume.
  */
-function generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, styles) {
+function generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, styles, addHyperlinkRel) {
   const nodes = [];
-  
+
   for (const project of projectEntries) {
     const config = linkConfigs[project.repoId] || { showGithub: true, showDemo: false, demoUrl: '' };
-    
+
     // Project title line
-    const titlePara = createStyledTitleParagraph(xmlDoc, wNs, project, config, styles);
+    const titlePara = createStyledTitleParagraph(xmlDoc, wNs, project, config, styles, addHyperlinkRel);
     nodes.push(titlePara);
     
     // Bullet points
@@ -335,7 +382,7 @@ function generateProjectXmlNodes(xmlDoc, wNs, projectEntries, linkConfigs, style
  * Create a project title paragraph cloning the existing resume's title style.
  * Layout: "ProjectName | TechStack" with optional right-aligned link
  */
-function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
+function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles, addHyperlinkRel) {
   const p = xmlDoc.createElementNS(wNs, 'w:p');
   
   // Use existing title paragraph properties or create default
@@ -375,9 +422,9 @@ function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
   
   // Links — right-aligned if existing format uses tab stops, otherwise inline
   const links = [];
-  if (config.showGithub && project.html_url) links.push('GitHub');
-  if (config.showDemo && config.demoUrl) links.push('Live Demo');
-  
+  if (config.showGithub && project.html_url) links.push({ label: 'GitHub', url: project.html_url });
+  if (config.showDemo && config.demoUrl) links.push({ label: 'Live Demo', url: config.demoUrl });
+
   if (links.length > 0) {
     if (styles.hasRightAlignedLink) {
       // Add a tab character to push link to the right
@@ -391,10 +438,19 @@ function createStyledTitleParagraph(xmlDoc, wNs, project, config, styles) {
       p.appendChild(sep2);
     }
     
-    // Link text with hyperlink styling
+    // Clickable link runs with hyperlink styling
     const linkBase = styles.linkRPr || sepBase;
-    const linkText = createStyledRun(xmlDoc, wNs, links.join(' | '), linkBase, { italic: true, color: '0563C1' });
-    p.appendChild(linkText);
+    const rNs = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    links.forEach((link, i) => {
+      if (i > 0) {
+        p.appendChild(createStyledRun(xmlDoc, wNs, ' | ', linkBase, { removeBold: true, removeUnderline: true }));
+      }
+      const hyperlink = xmlDoc.createElementNS(wNs, 'w:hyperlink');
+      hyperlink.setAttributeNS(rNs, 'r:id', addHyperlinkRel(link.url));
+      hyperlink.setAttributeNS(wNs, 'w:history', '1');
+      hyperlink.appendChild(createStyledRun(xmlDoc, wNs, link.label, linkBase, { italic: true, color: '0563C1' }));
+      p.appendChild(hyperlink);
+    });
   }
   
   return p;

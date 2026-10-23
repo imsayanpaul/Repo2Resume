@@ -121,7 +121,7 @@ export default function RepoSelector({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               gap: '8px',
               height: '36px',
               padding: '0 12px',
@@ -189,7 +189,7 @@ export default function RepoSelector({
                       width: '100%',
                       display: 'flex',
                       alignItems: 'center',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       gap: '8px',
                       padding: '7px 10px',
                       borderRadius: 'var(--radius-sm)',

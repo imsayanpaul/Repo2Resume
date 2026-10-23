@@ -11,19 +11,24 @@
  * @param {String} apiKey - User's Gemini API Key (optional)
  * @param {Array} jdKeywords - Target Job Description matching keywords (optional)
  * @param {String} customInstruction - Specific user instructions for the bullet generation
+ * @returns {Promise<{bullets: string[], source: 'gemini'|'heuristic', aiError: string|null}>}
  */
 export async function generateRepoBullets(repo, tone = 'xyz', apiKey = '', jdKeywords = [], customInstruction = '') {
+  let aiError = null;
+
   // 1. If Gemini API Key is provided, use live Gemini API
   if (apiKey && apiKey.trim() !== '') {
     try {
-      return await generateBulletsWithGemini(repo, tone, apiKey, jdKeywords, customInstruction);
+      const bullets = await generateBulletsWithGemini(repo, tone, apiKey.trim(), jdKeywords, customInstruction);
+      return { bullets, source: 'gemini', aiError: null };
     } catch (err) {
       console.warn('Gemini API call failed, falling back to smart rule engine:', err.message);
+      aiError = err.message;
     }
   }
 
-  // 2. Local Smart Heuristic Generator (Zero Latency, High Quality)
-  return generateHeuristicBullets(repo, tone, jdKeywords);
+  // 2. Local Smart Heuristic Generator (Zero Latency)
+  return { bullets: generateHeuristicBullets(repo, tone, jdKeywords), source: 'heuristic', aiError };
 }
 
 const TONE_INSTRUCTIONS = {
@@ -50,6 +55,8 @@ const TONE_INSTRUCTIONS = {
     - Keep each bullet to 1-2 lines maximum
     Example: "Deployed AI-powered career platform using React, Node.js, PostgreSQL, and OpenAI APIs; implemented ATS resume scanning, cover letter generation, and real-time job tracking for 500+ users."`
 };
+
+const GEMINI_TIMEOUT_MS = 30000;
 
 /**
  * Call Gemini API directly from browser using available models
@@ -93,28 +100,40 @@ Return ONLY a valid JSON object (no markdown codeblock wrapper):
   "correctedTechStack": ["React", "Node.js", "PostgreSQL", "etc..."]
 }`;
 
-  const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  // gemini-2.0-flash and the 1.5 models are retired (404); the API points callers to these
+  const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
   let lastError = null;
 
   for (const model of modelsToTry) {
+    // Under high demand a model can queue a request for minutes instead of returning 503,
+    // so give up after a while and let the next model try
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const response = await fetch(url, {
+        signal: controller.signal,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
             topP: 0.9,
-            maxOutputTokens: 1024
+            // Leaves headroom for models that spend output tokens on thinking
+            maxOutputTokens: 4096,
+            responseMimeType: 'application/json'
           }
         })
       });
 
       if (response.ok) {
         const data = await response.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        // Thinking models can return thought parts ahead of the answer, so keep only answer text
+        const rawText = (data?.candidates?.[0]?.content?.parts || [])
+          .filter(part => !part.thought && typeof part.text === 'string')
+          .map(part => part.text)
+          .join('');
         const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
         
         try {
@@ -141,16 +160,29 @@ Return ONLY a valid JSON object (no markdown codeblock wrapper):
             if (Array.isArray(arr) && arr.length > 0) return arr;
           }
         }
+        lastError = new Error(`Gemini (${model}) returned a response that could not be parsed.`);
       } else {
         const errorData = await response.json().catch(() => ({}));
         const msg = errorData?.error?.message || `HTTP ${response.status}`;
         if (response.status === 429 || msg.includes('RESOURCE_EXHAUSTED') || msg.toLowerCase().includes('quota')) {
-          throw new Error('Gemini API quota exhausted or rate limited. Please add your free Gemini API key in Settings.');
+          lastError = new Error('Gemini API quota exhausted or rate limited. Try again later or use a different Gemini API key in Settings.');
+          continue;
         }
-        lastError = new Error(msg);
+        if (response.status === 401 || response.status === 403 || /api key/i.test(msg)) {
+          // Bad, revoked or leaked key: every model will fail the same way
+          const keyErr = new Error(`Gemini rejected the API key: ${msg} Update it in Settings.`);
+          keyErr.fatal = true;
+          throw keyErr;
+        }
+        lastError = new Error(`Gemini (${model}): ${msg}`);
       }
     } catch (err) {
-      lastError = err;
+      if (err.fatal) throw err;
+      lastError = err.name === 'AbortError'
+        ? new Error(`Gemini (${model}) timed out after ${GEMINI_TIMEOUT_MS / 1000}s.`)
+        : err;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -163,7 +195,10 @@ Return ONLY a valid JSON object (no markdown codeblock wrapper):
  */
 function generateHeuristicBullets(repo, tone, jdKeywords = []) {
   const name = formatRepoName(repo.name);
-  const techStack = repo.detected_deps.length > 0 ? repo.detected_deps.slice(0, 5).join(', ') : repo.language;
+  const lang = repo.language && repo.language !== 'Codebase' ? repo.language : 'modern tooling';
+  const techStack = repo.detected_deps.length > 0 ? repo.detected_deps.slice(0, 5).join(', ') : lang;
+  const arch = getArchitectureDetail(repo);
+  const archTech = arch.tech || lang;
   const starsText = repo.stargazers_count > 10 ? `, garnering ${repo.stargazers_count}+ stars on GitHub` : '';
   const desc = (repo.description || '').toLowerCase();
   
@@ -185,7 +220,7 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
   if (tone === 'xyz') {
     return [
       `${verbs.lead} ${name}, ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''}, leveraging ${techStack}${jdHighlight}${starsText}.`,
-      `${verbs.mid} ${getArchitectureDetail(repo)} using ${repo.language}, ${getPerformanceMetric(repo)} and ensuring robust error handling across all user-facing workflows.`,
+      `${verbs.mid} ${arch.text} using ${archTech}, ${getPerformanceMetric(repo)} and ensuring robust error handling across all user-facing workflows.`,
       `${verbs.tail} ${getInfraDetail(repo)}, ${getQualityMetric(repo)} to maintain production-grade reliability and developer velocity.`
     ];
   }
@@ -193,8 +228,8 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
   if (tone === 'star') {
     return [
       `Identified a need for ${getProjectNeed(repo)}; ${verbs.lead.toLowerCase()} ${name} using ${techStack} — ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''}${starsText}.`,
-      `${verbs.mid} ${getArchitectureDetail(repo)} with ${repo.language}, ${getPerformanceMetric(repo)} and enabling seamless end-to-end user workflows.`,
-      `${verbs.tail} ${getInfraDetail(repo)} and automated quality gates, ${getQualityMetric(repo)} during active development iterations.`
+      `${verbs.mid} ${arch.text} with ${archTech}, ${getPerformanceMetric(repo)} and enabling seamless end-to-end user workflows.`,
+      `${verbs.tail} ${getInfraDetail(repo)}, ${getQualityMetric(repo)} during active development iterations.`
     ];
   }
 
@@ -209,8 +244,8 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
   // Default ATS Minimalist
   return [
     `${verbs.lead} ${name} using ${techStack} — ${projectPurpose}${featureHighlights ? `; ${featureHighlights}` : ''}${starsText}.`,
-    `${verbs.mid} ${getArchitectureDetail(repo)} with ${repo.language}, ${getPerformanceMetric(repo)}.`,
-    `${verbs.tail} ${getInfraDetail(repo)}, dependency tracking, and automated test suites to ensure production-grade reliability.`
+    `${verbs.mid} ${arch.text} with ${archTech}, ${getPerformanceMetric(repo)}.`,
+    `${verbs.tail} ${getInfraDetail(repo)} to ensure production-grade reliability.`
   ];
 }
 
@@ -227,7 +262,7 @@ function pickVerbSet(repoName) {
     { lead: 'Spearheaded development of', mid: 'Constructed', tail: 'Deployed' },
     { lead: 'Created and launched', mid: 'Streamlined', tail: 'Configured' },
     { lead: 'Developed and delivered', mid: 'Programmed', tail: 'Orchestrated' },
-    { lead: 'Pioneered and released', mid: 'Crafted', tail: 'Automated' },
+    { lead: 'Pioneered and released', mid: 'Crafted', tail: 'Instituted' },
   ];
   
   // Simple deterministic hash from repo name
@@ -258,6 +293,7 @@ function extractProjectPurpose(repo) {
   // Clean the description
   let cleaned = desc
     .replace(/:[a-z0-9_+-]+:/gi, '')  // Remove GitHub emoji shortcodes
+    .replace(/\s*\([^)]*\)/g, '')      // Remove asides like "(Deprecated: use X instead.)"
     .replace(/[!]{2,}/g, '')           // Remove excessive exclamation marks
     .trim();
   
@@ -272,8 +308,17 @@ function extractProjectPurpose(repo) {
     cleaned = cleaned.replace(pattern, '');
   }
   
-  // Remove leading articles
-  cleaned = cleaned.replace(/^\s*(a|an|the)\s+/i, '').trim();
+  // Remove leading articles and filler adverbs ("Instantly convert..." -> "convert...")
+  cleaned = cleaned
+    .replace(/^\s*(a|an|the)\s+/i, '')
+    .replace(/^\s*(instantly|easily|quickly|simply|automatically|effortlessly|seamlessly)\s+/i, '')
+    .trim();
+
+  // A description that just repeats the repo name ("Ai Interview System") says nothing
+  const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (normalize(cleaned.replace(/\.\s*$/, '')) === normalize(repo.name)) {
+    cleaned = '';
+  }
   
   // Remove trailing period
   cleaned = cleaned.replace(/\.\s*$/, '');
@@ -282,25 +327,38 @@ function extractProjectPurpose(repo) {
     return `a ${repo.language || 'full-stack'} application with modular architecture`;
   }
   
-  // For long descriptions, take the first clause/sentence as the core purpose
+  // Take the first sentence as the core purpose; the rest is usually detail
   let purpose = cleaned;
-  if (purpose.length > 100) {
-    // Split on sentence-ending or feature-listing delimiters
-    const firstPart = purpose.split(/[.!;]/)[0].trim();
-    if (firstPart.length > 20) {
-      purpose = firstPart;
-    }
+  const firstSentence = purpose.split(/[.!?;](?:\s|$)/)[0].trim();
+  if (firstSentence.length > 20 || purpose.length > 100) {
+    purpose = firstSentence || purpose;
   }
-  
-  // Lowercase first letter for embedding in sentence
-  purpose = purpose.charAt(0).toLowerCase() + purpose.slice(1);
-  
+
+  // Lowercase first letter for embedding in sentence, but keep acronyms like "AI" or "CLI"
+  if (!/^[A-Z]{2,}/.test(purpose)) {
+    purpose = purpose.charAt(0).toLowerCase() + purpose.slice(1);
+  }
+
+  // Descriptions written as instructions ("Copy a list once...", "Tweak React components...")
+  // read as "a tool to <verb>...", not "a copy a list once..."
+  const firstWord = purpose.split(/[\s,]/)[0].toLowerCase();
+  if (IMPERATIVE_VERBS.has(firstWord)) {
+    return `a tool to ${purpose}`;
+  }
+
   // Add appropriate article
-  const vowels = 'aeiou';
-  const article = vowels.includes(purpose[0]?.toLowerCase()) ? 'an' : 'a';
-  
+  const article = /^[aeiou]/i.test(purpose) || /^[AEFHILMNORSX][A-Z]/.test(purpose) ? 'an' : 'a';
+
   return `${article} ${purpose}`;
 }
+
+const IMPERATIVE_VERBS = new Set([
+  'copy', 'paste', 'turn', 'convert', 'build', 'create', 'generate', 'make', 'track', 'manage', 'find',
+  'search', 'get', 'tweak', 'use', 'run', 'transform', 'automate', 'scan', 'share', 'send', 'save',
+  'download', 'upload', 'learn', 'write', 'read', 'deploy', 'monitor', 'organize', 'visualize', 'explore',
+  'compare', 'analyze', 'analyse', 'summarize', 'summarise', 'extract', 'detect', 'play', 'chat', 'browse',
+  'store', 'sync', 'schedule', 'plan', 'help', 'keep', 'add', 'export', 'import', 'render', 'test', 'check'
+]);
 
 /**
  * Extract specific feature highlights from the description.
@@ -337,18 +395,25 @@ function extractFeatureHighlights(repo) {
 /**
  * Context-aware architecture detail based on repo tech stack
  */
+// Returns the architecture phrase plus the technology that justifies it,
+// so a React frontend isn't described as being built "using Python"
 function getArchitectureDetail(repo) {
-  const deps = (repo.detected_deps || []).map(d => d.toLowerCase());
-  if (deps.some(d => d.includes('react') || d.includes('vue') || d.includes('angular') || d.includes('svelte'))) {
-    return 'a responsive component-based frontend with RESTful API integration layer';
+  const deps = repo.detected_deps || [];
+  const find = (...keys) => deps.find(d => keys.some(k => d.toLowerCase().includes(k)));
+
+  const frontend = find('react', 'vue', 'angular', 'svelte', 'next.js');
+  if (frontend) {
+    return { text: 'a responsive component-based frontend with RESTful API integration layer', tech: frontend };
   }
-  if (deps.some(d => d.includes('fastapi') || d.includes('express') || d.includes('flask') || d.includes('django'))) {
-    return 'modular API routes with middleware-based request validation and error handling';
+  const backend = find('fastapi', 'express', 'flask', 'django', 'nestjs', 'spring');
+  if (backend) {
+    return { text: 'modular API routes with middleware-based request validation and error handling', tech: backend };
   }
-  if (deps.some(d => d.includes('docker') || d.includes('kubernetes'))) {
-    return 'containerized microservices with orchestrated deployment pipelines';
+  const containers = find('docker', 'kubernetes');
+  if (containers) {
+    return { text: 'containerized services with orchestrated deployment pipelines', tech: containers };
   }
-  return 'modular data processing workflows with clean separation of concerns';
+  return { text: 'modular processing workflows with clean separation of concerns', tech: null };
 }
 
 function getRepoHash(repoName, salt = 0) {
@@ -438,21 +503,34 @@ function getPerformanceMetric(repo) {
   ], repoName, 7);
 }
 
+// Only names infrastructure the repo actually shows evidence of, so a static
+// site isn't credited with "CI/CD pipelines and automated test coverage"
 function getInfraDetail(repo) {
-  const deps = (repo.detected_deps || []).map(d => d.toLowerCase());
-  if (deps.some(d => d.includes('docker'))) return 'Docker containerization, CI/CD pipelines, and automated deployment workflows';
-  if (deps.some(d => d.includes('firebase') || d.includes('supabase'))) return 'cloud-hosted BaaS infrastructure with automated scaling and real-time data sync';
-  if (deps.some(d => d.includes('aws') || d.includes('gcp') || d.includes('azure'))) return 'cloud infrastructure provisioning, monitoring dashboards, and auto-scaling policies';
-  return 'automated test coverage, CI/CD pipelines, and structured schema validations';
+  const deps = repo.detected_deps || [];
+  const has = (...keys) => deps.find(d => keys.some(k => d.toLowerCase().includes(k)));
+  const parts = [];
+
+  if (has('docker')) parts.push('Docker containerization');
+  if (has('kubernetes')) parts.push('Kubernetes orchestration');
+  if (has('github actions')) parts.push('GitHub Actions CI/CD pipelines');
+  const testTool = has('jest', 'vitest', 'pytest', 'cypress', 'playwright');
+  if (testTool) parts.push(`automated ${testTool} test suites`);
+  const baas = has('supabase', 'firebase');
+  if (baas) parts.push(`a ${baas}-backed cloud data layer`);
+  const cloud = has('aws', 'gcp', 'azure', 'vercel');
+  if (cloud) parts.push(`${cloud} cloud deployment`);
+
+  if (parts.length === 0) return 'a modular, well-documented codebase structure';
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
 }
 
 function getQualityMetric(repo) {
   const repoName = repo.name || '';
-  if (repo.stargazers_count > 20) {
-    return `earning ${repo.stargazers_count}+ GitHub stars and active developer adoption`;
-  }
-  if (repo.commits_count > 40) {
-    return `demonstrating robust iterative engineering across ${repo.commits_count}+ production commits`;
+  // Stars are already credited in the lead bullet; only cite a commit count when it's the real one
+  if (typeof repo.commits_count === 'number' && repo.commits_count > 40) {
+    return `demonstrating iterative engineering across ${repo.commits_count} commits`;
   }
   return pickOption([
     'enforcing comprehensive unit and integration test coverage across critical user paths',
