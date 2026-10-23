@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Star, GitFork, CheckSquare, Square, Filter, Code2, AlertCircle, Loader2, Terminal, Briefcase, ChevronDown, Check } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Star, GitFork, Briefcase } from 'lucide-react';
 import { matchRepoToJd } from '../services/jdMatcher';
 
-// Official GitHub language colors map
+// GitHub's own language colors
 const LANG_COLORS = {
   JavaScript: '#f1e05a',
   TypeScript: '#3178c6',
@@ -21,21 +21,30 @@ const LANG_COLORS = {
   Kotlin: '#A97BFF',
   Shell: '#89e051',
   Vue: '#41b883',
-  Codebase: '#a855f7'
+  Codebase: '#8a857b'
 };
 
-// Helper to strip raw GitHub shortcode emojis (e.g. :zap:, :sparkles:)
+// 8×8 tick on the pixel grid
+function PixelTick() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 8 8" shapeRendering="crispEdges">
+      <path d="M6 1h1v2H6v1H5v1H4v1H3v1H2V6H1V4h1v1h1V4h1V3h1V2h1z" fill="currentColor" />
+    </svg>
+  );
+}
+
+// Strip GitHub shortcode emojis (e.g. :zap:, :sparkles:)
 function cleanDescription(desc) {
-  if (!desc) return '';
+  if (!desc || desc === 'No description provided.') return '';
   return desc.replace(/:[a-z0-9_+-]+:/gi, '').trim();
 }
 
-export default function RepoSelector({ 
-  user, 
-  repos, 
-  selectedRepoIds, 
-  onToggleSelect, 
-  onSelectAll, 
+export default function RepoSelector({
+  user,
+  repos,
+  selectedRepoIds,
+  onToggleSelect,
+  onSelectAll,
   onDeselectAll,
   jdKeywords,
   onGenerate,
@@ -45,329 +54,134 @@ export default function RepoSelector({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLang, setSelectedLang] = useState('ALL');
-  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
 
-  // Click away listener to close dropdown
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsLangDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const availableLangs = useMemo(
+    () => Array.from(new Set(repos.map(r => r.language).filter(Boolean))).sort(),
+    [repos]
+  );
 
-  // Available Languages list
-  const availableLangs = useMemo(() => {
-    const langs = new Set(repos.map(r => r.language).filter(Boolean));
-    return ['ALL', ...Array.from(langs)];
-  }, [repos]);
-
-  // Filtered & JD Scored Repos
+  // Filtered, JD-scored and sorted
   const processedRepos = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return repos
-      .map(r => {
-        const jdMatch = matchRepoToJd(r, jdKeywords);
-        return { ...r, ...jdMatch };
-      })
+      .map(r => ({ ...r, ...matchRepoToJd(r, jdKeywords) }))
       .filter(r => {
-        const cleanDesc = cleanDescription(r.description);
-        const matchesText = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            cleanDesc.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesText = r.name.toLowerCase().includes(term) || cleanDescription(r.description).toLowerCase().includes(term);
         const matchesLang = selectedLang === 'ALL' || r.language === selectedLang;
         return matchesText && matchesLang;
       })
       .sort((a, b) => (b.scorePercent || 0) - (a.scorePercent || 0) || b.stargazers_count - a.stargazers_count);
   }, [repos, searchTerm, selectedLang, jdKeywords]);
 
+  const count = selectedRepoIds.length;
+
   return (
-    <div className="glass-panel repo-sidebar" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '14px', height: '100%', minHeight: 0, overflowX: 'hidden' }}>
-      
-      {/* User Info Header */}
-      {user && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px', flexShrink: 0, minWidth: 0, overflow: 'hidden' }}>
-          <img 
-            src={user.avatar_url} 
-            alt={user.name} 
-            style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid var(--border-accent)' }} 
+    <aside className="win picker" aria-label="Repositories">
+      <div className="win-bar">
+        <span className="win-title">PROJECTS.LST</span>
+        <span className="win-meta">{count}/{repos.length}</span>
+      </div>
+      <div className="picker-head">
+        {user && (
+          <div className="profile">
+            <img src={user.avatar_url} alt="" />
+            <div style={{ minWidth: 0 }}>
+              <div className="profile-name">{user.name}</div>
+              <div className="profile-meta">@{user.username} · {repos.length} {repos.length === 1 ? 'project' : 'projects'}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="picker-filters">
+          <input
+            type="search"
+            className="field"
+            placeholder="Filter projects"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Filter repositories"
           />
-          <div>
-            <h2 style={{ fontSize: '0.98rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>{user.name}</h2>
-            <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }} className="font-mono">
-              @{user.username} • {repos.length} {repos.length === 1 ? 'Project' : 'Projects'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Control Bar: Search & Custom Language Filter */}
-      <div className="repo-control-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
-        <input 
-          type="text"
-          className="input-field"
-          placeholder="Filter repositories..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ flex: 1, minWidth: '140px', height: '36px', padding: '0 12px', fontSize: '0.84rem', lineHeight: '36px', boxSizing: 'border-box' }}
-        />
-        
-        {/* Custom Sleek Dropdown Component */}
-        <div ref={dropdownRef} className="repo-lang-select" style={{ position: 'relative', display: 'inline-block' }}>
-          <button
-            type="button"
-            onClick={() => setIsLangDropdownOpen(prev => !prev)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              height: '36px',
-              padding: '0 12px',
-              fontSize: '0.82rem',
-              width: '100%',
-              minWidth: '130px',
-              cursor: 'pointer',
-              background: '#0f0f12',
-              border: isLangDropdownOpen ? '1px solid #52525b' : '1px solid var(--border-muted)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--text-primary)',
-              transition: 'all 0.15s ease',
-              boxSizing: 'border-box',
-              boxShadow: isLangDropdownOpen ? '0 0 0 2px rgba(255, 255, 255, 0.08)' : 'none'
-            }}
+          <select
+            className="field"
+            value={selectedLang}
+            onChange={(e) => setSelectedLang(e.target.value)}
+            aria-label="Filter by language"
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', overflow: 'hidden' }}>
-              <span
-                style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  backgroundColor: selectedLang === 'ALL' ? '#e2e8f0' : (LANG_COLORS[selectedLang] || '#a1a1aa'),
-                  flexShrink: 0
-                }}
-              />
-              <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', fontWeight: '500' }}>
-                {selectedLang === 'ALL' ? 'All Languages' : selectedLang}
-              </span>
-            </div>
-            <ChevronDown size={14} color="#a1a1aa" style={{ transition: 'transform 0.2s ease', transform: isLangDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink: 0 }} />
-          </button>
+            <option value="ALL">All languages</option>
+            {availableLangs.map(l => <option key={l} value={l}>{l === 'Codebase' ? 'Unknown' : l}</option>)}
+          </select>
+        </div>
 
-          {isLangDropdownOpen && (
-            <div
-              className="repo-lang-dropdown-menu"
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 5px)',
-                left: 0,
-                zIndex: 100,
-                minWidth: '160px',
-                maxWidth: '220px',
-                background: '#141418',
-                border: '1px solid #3f3f46',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: '0 14px 35px rgba(0, 0, 0, 0.95)',
-                padding: '5px',
-                maxHeight: '220px',
-                overflowY: 'auto'
-              }}
-            >
-              {availableLangs.map(l => {
-                const isSelected = selectedLang === l;
-                const color = l === 'ALL' ? '#e2e8f0' : (LANG_COLORS[l] || '#a1a1aa');
-                return (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => {
-                      setSelectedLang(l);
-                      setIsLangDropdownOpen(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '8px',
-                      padding: '7px 10px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: isSelected ? '#27272a' : 'transparent',
-                      color: isSelected ? '#ffffff' : 'var(--text-secondary)',
-                      fontSize: '0.82rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.12s ease'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
-                      <span style={{ fontWeight: isSelected ? '600' : '400' }}>{l === 'ALL' ? 'All Languages' : l}</span>
-                    </div>
-                    {isSelected && <Check size={13} color="#ffffff" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+        <div className="picker-bulk">
+          <span><span className="mono">{count}</span> of {repos.length} selected</span>
+          <span className="picker-bulk-actions">
+            <button type="button" className="link-btn" onClick={onSelectAll}>Select all</button>
+            <button type="button" className="link-btn" onClick={onDeselectAll} disabled={count === 0}>Clear</button>
+          </span>
         </div>
       </div>
 
-      {/* Selection Quick Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', flexShrink: 0 }}>
-        <span style={{ color: 'var(--text-secondary)' }}>
-          Selected: <strong style={{ color: '#ffffff', fontFamily: 'var(--font-mono)' }}>{selectedRepoIds.length}</strong> / {repos.length} repos
-        </span>
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <button type="button" onClick={onSelectAll} className="btn btn-ghost btn-sm" style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', padding: '2px 8px' }}>
-            Select All
-          </button>
-          <span style={{ color: 'var(--border-muted)', fontSize: '0.75rem' }}>|</span>
-          <button type="button" onClick={onDeselectAll} className="btn btn-ghost btn-sm" style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', padding: '2px 8px' }}>
-            Deselect
-          </button>
-        </div>
-      </div>
-
-      {/* Repositories Scrollable List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
+      <div className="repo-list">
         {processedRepos.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
-            <AlertCircle size={26} style={{ marginBottom: '8px', opacity: 0.6 }} />
-            <p style={{ fontSize: '0.84rem' }}>No repositories match your filter criteria.</p>
-          </div>
+          <p className="empty-list">No repositories match this filter.</p>
         ) : (
           processedRepos.map(repo => {
             const isSelected = selectedRepoIds.includes(repo.id);
-            const cleanedDesc = cleanDescription(repo.description);
+            const desc = cleanDescription(repo.description);
+            const deps = (repo.detected_deps || []).filter(dep => dep !== repo.language).slice(0, 3);
 
             return (
-              <div 
+              <button
                 key={repo.id}
+                type="button"
+                className={`repo-row ${isSelected ? 'is-selected' : ''}`}
                 onClick={() => onToggleSelect(repo.id)}
-                style={{
-                  padding: '11px 13px',
-                  borderRadius: 'var(--radius-md)',
-                  background: isSelected ? '#1c1c22' : '#141418',
-                  border: isSelected ? '1px solid var(--border-accent)' : '1px solid var(--border-muted)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px'
-                }}
+                aria-pressed={isSelected}
               >
-                {/* Top Title Bar */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                    {isSelected ? <CheckSquare size={16} color="#ffffff" style={{ flexShrink: 0 }} /> : <Square size={16} color="#71717a" style={{ flexShrink: 0 }} />}
-                    <h3 style={{ fontSize: '0.88rem', fontWeight: '600', color: isSelected ? '#ffffff' : 'var(--text-primary)', fontFamily: 'var(--font-display)', wordBreak: 'break-word' }}>
-                      {repo.name}
-                    </h3>
-                  </div>
-
-                  {/* JD Match Badge */}
-                  {jdKeywords && jdKeywords.length > 0 && repo.scorePercent > 0 && (
-                    <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '1px 6px', flexShrink: 0 }}>
-                      {repo.scorePercent}% Match
-                    </span>
-                  )}
-                </div>
-
-                {/* Cleaned Description */}
-                {cleanedDesc && (
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
-                    {cleanedDesc}
-                  </p>
-                )}
-
-                {/* Tech Stack & Stats Badges */}
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', marginTop: '2px', width: '100%' }}>
-                  {repo.language && (
-                    <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
-                      <Code2 size={11} /> {repo.language}
-                    </span>
-                  )}
-
-                  {repo.detected_deps
-                    ?.filter(dep => dep !== repo.language)
-                    .slice(0, 4)
-                    .map(dep => (
-                    <span key={dep} className="badge" style={{ fontSize: '0.68rem' }}>
-                      {dep}
-                    </span>
-                  ))}
-
-                  <div className="font-mono" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <Star size={11} color="#e2e8f0" /> {repo.stargazers_count}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <GitFork size={11} /> {repo.forks_count}
-                    </span>
-                  </div>
-                </div>
-
-              </div>
+                <span className="check" aria-hidden="true"><PixelTick /></span>
+                <span style={{ minWidth: 0 }}>
+                  <span className="repo-name">
+                    <span>{repo.name}</span>
+                    {jdKeywords?.length > 0 && repo.scorePercent > 0 && (
+                      <span className="match" title={`Matches: ${repo.matchedKeywords.join(', ')}`}>{repo.scorePercent}% match</span>
+                    )}
+                  </span>
+                  {desc && <span className="repo-desc">{desc}</span>}
+                  <span className="repo-meta">
+                    {repo.language && repo.language !== 'Codebase' && (
+                      <span><i className="lang-dot" style={{ background: LANG_COLORS[repo.language] || '#8a857b' }} />{repo.language}</span>
+                    )}
+                    {deps.length > 0 && <span>{deps.join(' · ')}</span>}
+                    {repo.stargazers_count > 0 && <span><Star size={11} />{repo.stargazers_count}</span>}
+                    {repo.forks_count > 0 && <span><GitFork size={11} />{repo.forks_count}</span>}
+                  </span>
+                </span>
+              </button>
             );
           })
         )}
       </div>
 
-      {/* Pinned Bottom Actions */}
-      <div style={{ flexShrink: 0, paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        
-        {/* Match Job Description Button */}
-        <button 
-          type="button" 
-          className="btn btn-sm"
+      <div className="picker-foot">
+        <button
+          type="button"
+          className={`btn btn-secondary ${hasJdKeywords ? 'jd-on' : ''}`}
           onClick={onOpenJdModal}
-          title="Match Job Description keywords"
-          style={{ 
-            width: '100%',
-            gap: '8px', 
-            height: '40px', 
-            fontSize: '0.82rem',
-            fontWeight: '600',
-            borderRadius: 'var(--radius-md)',
-            border: hasJdKeywords ? '1px solid rgba(255, 255, 255, 0.5)' : '1px dashed rgba(255, 255, 255, 0.25)',
-            background: hasJdKeywords ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-            color: hasJdKeywords ? '#ffffff' : '#d4d4d8',
-            boxShadow: hasJdKeywords ? '0 0 12px rgba(255, 255, 255, 0.15)' : 'none',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <Briefcase size={14} />
-          <span>{hasJdKeywords ? '✓ JD Match Active' : 'Match Job Description'}</span>
+          <Briefcase size={15} aria-hidden="true" />
+          {hasJdKeywords ? `Matching ${jdKeywords.length} job skills` : 'Match a job description'}
         </button>
-
-        {/* Generate Resume Bullets */}
-        <button 
-          type="button" 
+        <button
+          type="button"
           className="btn btn-primary"
-          disabled={selectedRepoIds.length === 0 || isGenerating}
+          disabled={count === 0 || isGenerating}
           onClick={onGenerate}
-          style={{
-            width: '100%',
-            opacity: (selectedRepoIds.length === 0 || isGenerating) ? 0.6 : 1,
-            cursor: (selectedRepoIds.length === 0 || isGenerating) ? 'not-allowed' : 'pointer',
-            height: '42px'
-          }}
         >
-          {isGenerating ? (
-            <>
-              <Loader2 size={16} className="spin" />
-              <span>Generating AI Bullets...</span>
-            </>
-          ) : (
-            <>
-              <Terminal size={16} />
-              <span>Generate Resume Bullets ({selectedRepoIds.length})</span>
-            </>
-          )}
+          {isGenerating
+            ? <><span className="blocks" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span> Writing bullets</>
+            : count === 0 ? 'Select projects to write up' : `Write bullets for ${count} ${count === 1 ? 'project' : 'projects'}`}
         </button>
       </div>
-
-    </div>
+    </aside>
   );
 }
