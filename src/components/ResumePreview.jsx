@@ -294,7 +294,6 @@ export default function ResumePreview({
       <div className="win-bar">
         <span className="win-title">RESUME.DOC</span>
         <span className="win-meta">{hasBullets ? `${generatedBullets.length} ${generatedBullets.length === 1 ? 'project' : 'projects'} · ${VIEWS.find(v => v.id === viewMode)?.label.toLowerCase()}` : 'empty'}</span>
-        <span className="win-btns" aria-hidden="true"><span /><span /></span>
       </div>
       <div className="toolbar">
         <div className="seg" role="group" aria-label="Writing style">
