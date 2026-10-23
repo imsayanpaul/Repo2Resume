@@ -7,7 +7,7 @@ import SettingsModal from './components/SettingsModal';
 import Footer from './components/Footer';
 import { fetchUserRepos, enrichRepoDetails, setServerGithub } from './services/github';
 import { generateTemplateBullets, generateAiBullets } from './services/resumeEngine';
-import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
 // Storage can throw in private windows or with site data blocked
 function readStorage(key) {
@@ -82,9 +82,10 @@ export default function App() {
         repoId: repo.id,
         repoName: repo.name,
         description: repo.description,
-        techStack: (repo.ai_stack?.length ? repo.ai_stack : repo.detected_deps)?.length > 0
+        // A résumé stack line names the main tools, not every dependency
+        techStack: ((repo.ai_stack?.length ? repo.ai_stack : repo.detected_deps)?.length > 0
           ? (repo.ai_stack?.length ? repo.ai_stack : repo.detected_deps)
-          : [repo.language],
+          : [repo.language]).slice(0, 6),
         bullets: result.bullets,
         html_url: repo.html_url,
         source: result.source,
@@ -256,249 +257,136 @@ export default function App() {
     setErrorMsg(null);
   };
 
+  const sampleProfiles = ['imsayanpaul', 'gaearon', 'yyx990803', 'torvalds'];
+
   return (
-    <div className={`app-container ${userData ? 'workspace-active' : ''}`}>
-      
-      {/* Executive Clean Header */}
-      <Header 
+    <div className="shell">
+      <Header
         onGoHome={handleGoHome}
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeUsername={userData?.username}
         hasApiKey={aiEnabled}
       />
 
-      {/* Error Alert Banner */}
       {errorMsg && (
-        <div style={{
-          padding: '12px 18px',
-          borderRadius: 'var(--radius-md)',
-          background: 'rgba(239, 68, 68, 0.08)',
-          border: '1px solid rgba(239, 68, 68, 0.25)',
-          color: '#fca5a5',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          fontSize: '0.86rem'
-        }}>
-          <AlertTriangle size={16} color="#ef4444" style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1 }}>{errorMsg}</span>
-          <button type="button" className="btn-ghost" onClick={() => setErrorMsg(null)} style={{ cursor: 'pointer', color: '#fca5a5', fontSize: '0.8rem' }}>
+        <div className="notice" role="status">
+          <AlertTriangle size={16} aria-hidden="true" />
+          <span className="notice-body">{errorMsg}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setErrorMsg(null)}>
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Main Content Area */}
       {!userData ? (
-        /* Premium Executive Hero Experience */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '960px', margin: '24px auto 0 auto', width: '100%' }}>
-          
-          {/* Main Hero Box */}
-          <div className="glass-panel animate-fade-in-up hero-box" style={{ padding: '52px 40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
-            
-            <div>
-              <h2 className="hero-title" style={{ fontSize: '2.75rem', fontWeight: '700', lineHeight: '1.25', marginBottom: '14px', letterSpacing: '-0.03em', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
-                Turn GitHub Repositories into <br />
-                <span className="font-serif-italic" style={{ color: '#ffffff', fontSize: '1.22em', paddingRight: '4px' }}>ATS-Winning</span> Resume Bullets.
-              </h2>
-              <p className="hero-subtitle" style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '640px', margin: '0 auto', lineHeight: '1.6' }}>
-                Instantly convert your public GitHub projects into high-impact, ATS-optimized bullet points ready to copy & paste directly into the <strong style={{ color: '#ffffff', fontWeight: '600' }}>Projects section</strong> of your resume.
-              </p>
-            </div>
+        <>
+          <main className="landing">
+            <section className="hero">
+              <div>
+                <p className="eyebrow"><span className="dot dot-on" aria-hidden="true" /> for the Projects section of a résumé</p>
+                <h1>Your GitHub repos, written up as <em>résumé bullets</em> you can defend.</h1>
+                <p className="hero-sub">
+                  Repo2Resume reads each project's README, dependency files and commit history, then drafts bullets that say what you actually built. Every number is checked against the repo.
+                </p>
 
-            {/* Direct Search Form */}
-            <form className="hero-search-form" onSubmit={(e) => { e.preventDefault(); handleSearchUser(searchInput); }} style={{ width: '100%', maxWidth: '500px', display: 'flex', gap: '10px' }}>
-              <div style={{ position: 'relative', flex: 1 }}>
-                <Github size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Enter GitHub username (e.g. imsayanpaul)..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  style={{ paddingLeft: '44px', height: '48px', fontSize: '0.94rem' }}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ height: '48px', padding: '0 24px', fontSize: '0.9rem' }} disabled={loading}>
-                {loading ? 'Analyzing...' : 'Generate Bullets'}
-              </button>
-            </form>
-
-            {/* Quick Profile Suggestions */}
-            <div className="sample-profiles-container" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              <span>Sample profiles:</span>
-              {['imsayanpaul', 'gaearon', 'yyx990803', 'torvalds'].map(name => (
-                <button
-                  key={name}
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleSearchUser(name)}
-                  style={{ fontSize: '0.78rem', padding: '3px 10px', height: '28px' }}
+                <form
+                  className="search"
+                  onSubmit={(e) => { e.preventDefault(); handleSearchUser(searchInput); }}
                 >
-                  @{name}
-                </button>
-              ))}
-            </div>
+                  <label className="search-input">
+                    <span className="search-prefix">github.com/</span>
+                    <input
+                      type="text"
+                      placeholder="username"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      autoComplete="off"
+                      spellCheck="false"
+                      aria-label="GitHub username or profile URL"
+                    />
+                  </label>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? <><span className="blocks" aria-hidden="true"><i /><i /><i /><i /></span> Reading repos</> : 'Load repositories'}
+                  </button>
+                </form>
 
-          </div>
-
-          {/* Clean Executive Sample Output Card */}
-          <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-1" style={{ padding: '24px', border: '1px solid var(--border-muted)' }}>
-            
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Code2 size={16} color="var(--accent-silver)" />
-                <span style={{ fontSize: '0.88rem', fontWeight: '600', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
-                  Sample Project Output — imsayanpaul/Reeldex
-                </span>
+                <div className="try-row">
+                  <span>Or try</span>
+                  {sampleProfiles.map(name => (
+                    <button key={name} type="button" onClick={() => handleSearchUser(name)}>
+                      {name}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <span className="badge" style={{ fontSize: '0.72rem' }}>
-                Google XYZ Formula
-              </span>
-            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: '600', color: '#ffffff' }}>
-                    Reeldex
-                  </h4>
-                  
-                  {/* Sample GitHub Link Badge */}
-                  <a 
-                    href="https://github.com/imsayanpaul/Reeldex" 
-                    target="_blank" 
-                    rel="noreferrer"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '0.7rem',
-                      color: '#f4f4f5',
-                      background: '#18181b',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      border: '1px solid #27272a',
-                      textDecoration: 'none',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0
-                    }}
-                  >
-                    <Github size={11} style={{ flexShrink: 0 }} /> GitHub <ExternalLink size={9} style={{ flexShrink: 0 }} />
-                  </a>
-
-                  {/* Sample Live Demo Link Badge */}
-                  <a 
-                    href="https://reeldex-io.vercel.app" 
-                    target="_blank" 
-                    rel="noreferrer"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '0.7rem',
-                      color: '#f4f4f5',
-                      background: '#18181b',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      border: '1px solid #27272a',
-                      textDecoration: 'none',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0
-                    }}
-                  >
-                    <Globe size={11} style={{ flexShrink: 0 }} /> Live Demo <ExternalLink size={9} style={{ flexShrink: 0 }} />
-                  </a>
+              {/* A real output next to the sources it was built from */}
+              <div className="demo" aria-label="Example output for the Reeldex repository">
+                <div className="win">
+                  <div className="win-bar">
+                    <span className="win-title">RESUME.DOC</span>
+                    <span className="win-meta">reeldex</span>
+                    <span className="win-btns" aria-hidden="true"><span /><span /></span>
+                  </div>
+                  <div className="page resume" style={{ border: 0 }}>
+                    <div className="resume-section">Projects</div>
+                    <div className="resume-entry">
+                      <div className="resume-head">
+                        <span className="resume-title">Reeldex</span>
+                        <span className="resume-links"><a href="https://github.com/imsayanpaul/Reeldex" target="_blank" rel="noreferrer">GitHub</a></span>
+                        <span className="resume-stack">Python, FastAPI, React, PostgreSQL</span>
+                      </div>
+                      <ul>
+                        <li>Built a searchable second brain for Instagram Reels that transcribes each DMed reel with Whisper and sorts it by topic.</li>
+                        <li>Designed a FastAPI pipeline that receives Instagram DMs via webhook and stores transcripts in PostgreSQL through SQLAlchemy.</li>
+                        <li>Shipped "Ask Dex", a chat that answers questions across saved reels, over 209 commits.</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
 
-                <span className="font-mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                  Python • FastAPI • React • PostgreSQL • Whisper
-                </span>
+                <div className="win">
+                  <div className="win-bar">
+                    <span className="win-title">SOURCES.LOG</span>
+                  </div>
+                  <ul className="log">
+                    <li><span className="ok">ok</span><span>README.md <span className="k">→ features, purpose</span></span><span className="k">12 KB</span></li>
+                    <li><span className="ok">ok</span><span>requirements.txt <span className="k">→ FastAPI, SQLAlchemy</span></span><span className="k">deps</span></li>
+                    <li><span className="ok">ok</span><span>package.json <span className="k">→ React, Vite</span></span><span className="k">deps</span></li>
+                    <li><span className="ok">ok</span><span>git log <span className="k">→ 209 commits by author</span></span><span className="k">count</span></li>
+                    <li><span className="ok">ok</span><span>numbers checked <span className="k">→ 0 invented</span></span><span className="k">pass</span></li>
+                  </ul>
+                </div>
               </div>
+            </section>
 
-              {/* Sample Links Control Bar */}
-              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '2px', fontSize: '0.76rem', background: '#18181b', padding: '5px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-muted)' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: '600' }}>Links:</span>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default', color: '#ffffff' }}>
-                  <input type="checkbox" checked readOnly style={{ accentColor: '#ffffff' }} />
-                  <Github size={12} /> GitHub Link
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'default', color: '#ffffff' }}>
-                  <input type="checkbox" checked readOnly style={{ accentColor: '#ffffff' }} />
-                  <Globe size={12} /> Live Demo
-                </label>
+            <section className="steps" aria-label="How it works">
+              <div className="step">
+                <p className="step-num">01</p>
+                <h3>Reads the repo</h3>
+                <p>README feature lists, package.json and requirements.txt, Dockerfiles, CI workflows and your own commit messages.</p>
               </div>
-
-              <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                <li>
-                  <strong style={{ color: '#ffffff' }}>Built a searchable second brain for Instagram Reels</strong> that transcribes each DMed reel with Whisper, summarizes the tools and links it mentions, and sorts it by topic.
-                </li>
-                <li>
-                  <strong style={{ color: '#ffffff' }}>Designed a FastAPI ingestion pipeline</strong> that receives Instagram DMs via webhook and stores transcripts and summaries in PostgreSQL through SQLAlchemy.
-                </li>
-                <li>
-                  <strong style={{ color: '#ffffff' }}>Developed a React interface and "Ask Dex" chat</strong> that answers questions across saved reels with links back to the source videos.
-                </li>
-              </ul>
-            </div>
-
-          </div>
-
-          {/* Feature Highlights Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            
-            <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-2" style={{ padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#18181b', border: '1px solid #27272a', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                <Zap size={18} />
+              <div className="step">
+                <p className="step-num">02</p>
+                <h3>Drafts in seconds</h3>
+                <p>Plain-English bullets appear immediately; AI-written versions replace them about a second later. Pick XYZ, STAR, technical or ATS style.</p>
               </div>
-              <div>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '3px', color: '#ffffff' }}>Google XYZ Formula</h4>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
-                  Shapes each bullet as what you built, its concrete scope, and how you built it, using only facts from the repo.
-                </p>
+              <div className="step">
+                <p className="step-num">03</p>
+                <h3>Checks every claim</h3>
+                <p>Unbacked numbers and tech get rewritten or flagged, and thin repos are marked for review. Export to Word, LaTeX, Markdown or JSON.</p>
               </div>
-            </div>
+            </section>
+          </main>
 
-            <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-2" style={{ padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#18181b', border: '1px solid #27272a', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                <ShieldCheck size={18} />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '3px', color: '#ffffff' }}>ATS Scanner Ready</h4>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
-                  Generates clean Markdown, LaTeX, and JSON formats ready to paste directly into standard resume builders.
-                </p>
-              </div>
-            </div>
-
-            <div className="glass-panel glass-panel-hoverable animate-fade-in-up delay-3" style={{ padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#18181b', border: '1px solid #27272a', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                <CheckCircle2 size={18} />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '3px', color: '#ffffff' }}>JD Keyword Matcher</h4>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
-                  Matches target job description skills against repo dependencies to highlight relevant tech experience.
-                </p>
-              </div>
-            </div>
-
-          </div>
-
-          <Footer 
+          <Footer
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenJdModal={() => setIsJdOpen(true)}
           />
-
-        </div>
+        </>
       ) : (
-        /* Active User Workspace Dual Pane Layout */
-        <main className="main-layout">
-          
-          {/* Left Sidebar: Repositories Selector */}
-          <RepoSelector 
+        <main className={`workspace ${errorMsg ? 'with-notice' : ''}`}>
+          <RepoSelector
             user={userData}
             repos={repos}
             selectedRepoIds={selectedRepoIds}
@@ -512,8 +400,7 @@ export default function App() {
             hasJdKeywords={jdKeywords.length > 0}
           />
 
-          {/* Right Main Panel: Live Resume Preview & Editor */}
-          <ResumePreview 
+          <ResumePreview
             generatedBullets={generatedBullets}
             onToneChange={handleToneChange}
             activeTone={activeTone}
@@ -521,12 +408,10 @@ export default function App() {
             onRegenerate={handleForceRegenerate}
             isGenerating={loading}
           />
-
         </main>
       )}
 
-      {/* Modals */}
-      <JdMatcherModal 
+      <JdMatcherModal
         isOpen={isJdOpen}
         onClose={() => setIsJdOpen(false)}
         onApplyJd={handleApplyJd}
@@ -534,7 +419,7 @@ export default function App() {
         activeKeywords={jdKeywords}
       />
 
-      <SettingsModal 
+      <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => {
           setIsSettingsOpen(false);
@@ -546,8 +431,8 @@ export default function App() {
         onSaveGithubToken={handleSaveGithubToken}
         rateLimitReason={rateLimitReason}
         onClearRateLimitReason={() => setRateLimitReason(null)}
+        serverConfig={serverConfig}
       />
-
     </div>
   );
 }
