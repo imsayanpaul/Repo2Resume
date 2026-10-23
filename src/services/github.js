@@ -218,6 +218,37 @@ function toRepoModel(r, login) {
 }
 
 /**
+ * Star count for the nav. Cached for 6 hours so it doesn't spend a visitor's
+ * GitHub limit on every page load; goes through the /api proxy when the site
+ * has one, straight to GitHub otherwise. Resolves to null if neither works.
+ */
+export async function fetchStarCount(fullName) {
+  const key = `r2r:stars:${fullName}`;
+  try {
+    const cached = JSON.parse(localStorage.getItem(key) || 'null');
+    if (cached && Date.now() - cached.at < 6 * 60 * 60 * 1000) return cached.count;
+  } catch { /* storage blocked */ }
+
+  const attempts = [
+    () => fetch(`/api/github?path=${encodeURIComponent(`/repos/${fullName}`)}`),
+    () => fetch(`https://api.github.com/repos/${fullName}`, { headers: buildHeaders('') })
+  ];
+  for (const attempt of attempts) {
+    try {
+      const res = await attempt();
+      // A static host answers /api/* with the HTML app shell, so check for JSON
+      if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) continue;
+      const data = await res.json();
+      if (typeof data.stargazers_count === 'number') {
+        try { localStorage.setItem(key, JSON.stringify({ count: data.stargazers_count, at: Date.now() })); } catch { /* storage blocked */ }
+        return data.stargazers_count;
+      }
+    } catch { /* try the next route */ }
+  }
+  return null;
+}
+
+/**
  * Fetch one repository by "owner/name" (used by the eval script)
  */
 export async function fetchRepo(fullName, personalToken = '') {

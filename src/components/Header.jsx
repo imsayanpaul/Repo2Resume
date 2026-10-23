@@ -1,5 +1,8 @@
-import React from 'react';
-import { Settings, Github } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Github, Star } from 'lucide-react';
+import { fetchStarCount } from '../services/github';
+
+const REPO = 'imsayanpaul/Repo2Resume';
 
 // 16×16 document glyph drawn on the pixel grid
 export function PixelDoc({ className }) {
@@ -16,9 +19,16 @@ export function PixelDoc({ className }) {
 export default function Header({
   onGoHome,
   onOpenSettings,
-  activeUsername,
-  hasApiKey
+  activeUsername
 }) {
+  const [stars, setStars] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchStarCount(REPO).then(count => { if (alive) setStars(count); });
+    return () => { alive = false; };
+  }, []);
+
   return (
     <header className="topbar">
       <div className="topbar-inner">
@@ -39,32 +49,33 @@ export default function Header({
           </div>
         )}
 
-        <div className="topbar-actions">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={onOpenSettings}
-            title={hasApiKey ? 'AI writing is on. Open settings' : 'AI writing is off; bullets use the offline engine. Open settings'}
-          >
-            <span className="status">
-              <span className={`dot ${hasApiKey ? 'dot-on' : 'dot-off'}`} aria-hidden="true" />
-              <span className="hide-sm">{hasApiKey ? 'ai: on' : 'ai: off'}</span>
-            </span>
-            <Settings size={15} aria-hidden="true" />
-            <span className="visually-hidden">Settings</span>
+        <nav className="topbar-actions" aria-label="Main">
+          {!activeUsername && (
+            <a href="#example" className="nav-link hide-sm">Example</a>
+          )}
+          <button type="button" className="nav-link" onClick={onOpenSettings}>
+            Settings
           </button>
-
           <a
-            href="https://github.com/imsayanpaul/Repo2Resume"
+            href={`https://github.com/${REPO}`}
             target="_blank"
             rel="noreferrer"
-            className="btn btn-ghost btn-sm"
-            title="Source on GitHub"
+            className="nav-source"
+            title="Source on GitHub. Star it if it helped"
           >
-            <Github size={15} aria-hidden="true" />
-            <span className="hide-sm">Source</span>
+            <span className="nav-source-main">
+              <Github size={15} aria-hidden="true" />
+              <span className="hide-sm">Source</span>
+            </span>
+            {stars !== null && (
+              // "0" undersells a new repo, so invite a star until there is one
+              <span className="nav-stars" aria-label={stars > 0 ? `${stars} stars on GitHub` : 'Star on GitHub'}>
+                <Star size={12} aria-hidden="true" />
+                {stars > 0 ? stars : 'Star'}
+              </span>
+            )}
           </a>
-        </div>
+        </nav>
       </div>
     </header>
   );
