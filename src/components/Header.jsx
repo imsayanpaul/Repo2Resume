@@ -1,176 +1,70 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, Code2, Star, Sparkles, Check } from 'lucide-react';
+import React from 'react';
+import { Settings, Github } from 'lucide-react';
 
-export default function Header({ 
-  onGoHome,
-  onOpenSettings, 
-  activeUsername, 
-  hasApiKey 
-}) {
-  const [starCount, setStarCount] = useState(null);
-
-  useEffect(() => {
-    fetch('https://api.github.com/repos/imsayanpaul/Repo2Resume')
-      .then(res => res.json())
-      .then(data => {
-        if (data && typeof data.stargazers_count === 'number') {
-          setStarCount(data.stargazers_count);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
+// 16×16 document glyph drawn on the pixel grid
+export function PixelDoc({ className }) {
   return (
-    <header style={{
-      position: 'sticky',
-      top: '8px',
-      zIndex: 50,
-      maxWidth: '1280px',
-      margin: '0 auto 16px auto',
-      width: '100%',
-      boxSizing: 'border-box'
-    }}>
-      <div 
-        className="glass-panel header-inner-bar"
-        style={{
-          padding: '8px 16px',
-          borderRadius: 'var(--radius-lg)',
-          background: 'rgba(18, 18, 21, 0.88)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px'
-        }}
-      >
-        
-        {/* Brand Logo & Name */}
-        <div 
-          onClick={onGoHome} 
-          title="Return to Homepage"
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '10px', 
-            cursor: 'pointer',
-            userSelect: 'none'
-          }}
-          className="brand-logo-btn"
+    <svg className={className} viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+      <path d="M3 1h8l2 2v12H3z" fill="var(--paper)" />
+      <path d="M2 1h9v1H3v12h9V3h1v12H2zM11 2h1v1h-1z" fill="var(--ink)" />
+      <path d="M5 5h6v1H5zM5 8h4v1H5z" fill="var(--ink)" />
+      <path d="M5 11h5v1H5z" fill="var(--accent)" />
+    </svg>
+  );
+}
+
+export default function Header({
+  onGoHome,
+  onOpenSettings,
+  activeUsername,
+  hasApiKey
+}) {
+  return (
+    <header className="topbar">
+      <div className="topbar-inner">
+        <a
+          href="/"
+          className="wordmark"
+          onClick={(e) => { e.preventDefault(); onGoHome(); }}
+          aria-label="Repo2Resume home"
         >
-          <div style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '9px',
-            background: 'linear-gradient(135deg, #27272a 0%, #18181b 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            flexShrink: 0
-          }}>
-            <Code2 size={18} />
+          <PixelDoc className="wordmark-mark" />
+          Repo2Resume
+        </a>
+
+        {activeUsername && (
+          <div className="crumb">
+            <span aria-hidden="true">/</span>
+            <strong>{activeUsername}</strong>
           </div>
+        )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontSize: '1.15rem', fontWeight: '700', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '3px' }}>
-              Repo<span className="font-serif-italic" style={{ fontWeight: '400', fontSize: '1.1em', color: '#f4f4f5' }}>2Resume</span>
-            </h1>
-            
-            <div className="mobile-hide-badge" style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#18181b', border: '1px solid #27272a', borderRadius: '20px', padding: '2px 7px' }}>
-              <span style={{
-                width: '5px',
-                height: '5px',
-                borderRadius: '50%',
-                background: '#22c55e'
-              }} />
-              <span className="font-mono" style={{ fontSize: '0.66rem', color: '#a1a1aa', fontWeight: '600' }}>
-                v1.0
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Navigation Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-
-          {/* Settings Modal Button */}
-          <button 
-            type="button" 
-            className="btn btn-secondary btn-sm"
+        <div className="topbar-actions">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
             onClick={onOpenSettings}
-            title="Settings & API Keys"
-            style={{ 
-              position: 'relative', 
-              height: '34px', 
-              width: '34px', 
-              padding: '0',
-              borderRadius: 'var(--radius-md)',
-              background: '#18181b',
-              border: '1px solid #27272a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}
+            title={hasApiKey ? 'AI writing is on. Open settings' : 'AI writing is off; bullets use the offline engine. Open settings'}
           >
-            <Settings size={15} color="#a1a1aa" />
-            {hasApiKey && (
-              <span style={{
-                position: 'absolute',
-                top: '5px',
-                right: '5px',
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: '#ffffff'
-              }} />
-            )}
+            <span className="status">
+              <span className={`dot ${hasApiKey ? 'dot-on' : 'dot-off'}`} aria-hidden="true" />
+              <span className="hide-sm">{hasApiKey ? 'ai: on' : 'ai: off'}</span>
+            </span>
+            <Settings size={15} aria-hidden="true" />
+            <span className="visually-hidden">Settings</span>
           </button>
 
-          {/* GitHub Star Button */}
           <a
             href="https://github.com/imsayanpaul/Repo2Resume"
             target="_blank"
             rel="noreferrer"
-            title="Star Repo2Resume on GitHub"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              height: '34px',
-              borderRadius: 'var(--radius-md)',
-              background: '#18181b',
-              border: '1px solid #27272a',
-              color: '#ffffff',
-              textDecoration: 'none',
-              fontSize: '0.8rem',
-              fontWeight: '600',
-              flexShrink: 0
-            }}
-            className="btn-secondary"
+            className="btn btn-ghost btn-sm"
+            title="Source on GitHub"
           >
-            <Star size={13} color="#f4f4f5" />
-            <span className="mobile-hide-text">Star</span>
-            <span style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              padding: '1px 6px',
-              borderRadius: '4px',
-              fontSize: '0.72rem',
-              fontWeight: '600',
-              color: '#ffffff',
-              fontFamily: 'var(--font-mono)'
-            }}>
-              {starCount !== null ? starCount : '0'}
-            </span>
+            <Github size={15} aria-hidden="true" />
+            <span className="hide-sm">Source</span>
           </a>
-
         </div>
-
       </div>
     </header>
   );
