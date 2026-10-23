@@ -30,6 +30,8 @@ const TONES = [
   }
 ];
 
+const PROVIDER_LABELS = { groq: 'Groq', gemini: 'Gemini' };
+
 function escapeHtml(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -464,7 +466,8 @@ export default function ResumePreview({
       )}
 
       {/* Main Content Area */}
-      {isGenerating ? (
+      {/* Skeleton only until the first project is ready; after that bullets stream in */}
+      {isGenerating && generatedBullets.length === 0 ? (
         /* Loading Skeleton State */
         <div style={{ padding: '24px 12px', display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#ffffff', padding: '12px', background: '#18181b', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-muted)' }}>
@@ -530,9 +533,16 @@ export default function ResumePreview({
 
                     {/* Where these bullets came from, and any figures to double-check */}
                     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      <span className="badge" style={{ fontSize: '0.68rem' }} title={repoItem.source === 'gemini' ? 'Written by Gemini from the README, description and detected stack' : 'Built by the offline template engine from detected stack and repo stats'}>
-                        {repoItem.source === 'gemini' ? <><Sparkles size={10} /> AI · {repoItem.model}</> : 'Template'}
+                      <span className="badge" style={{ fontSize: '0.68rem' }} title={repoItem.source === 'ai' ? `Written by ${PROVIDER_LABELS[repoItem.provider] || 'AI'} from the README, description and detected stack` : 'Built by the offline template engine from README features, detected stack and repo stats'}>
+                        {repoItem.source === 'ai'
+                          ? <><Sparkles size={10} /> AI · {PROVIDER_LABELS[repoItem.provider] || ''} {repoItem.model}</>
+                          : 'Template'}
                       </span>
+                      {repoItem.pending && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <Loader2 size={11} className="spin" /> AI version on the way…
+                        </span>
+                      )}
                       {repoItem.unverified?.length > 0 && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#fbbf24' }}>
                           <AlertCircle size={12} /> Check before using: {repoItem.unverified.join(', ')} not found in the repo
@@ -586,7 +596,8 @@ export default function ResumePreview({
                         // React patching a text node the user's typing may have replaced
                         <li key={`${bulletIndex}:${bullet}`} style={{ fontSize: '0.88rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
                           <span
-                            contentEditable
+                            // Editing a bullet that's about to be replaced would lose the edit
+                            contentEditable={!repoItem.pending}
                             suppressContentEditableWarning
                             onBlur={(e) => onBulletEdit(repoIndex, bulletIndex, e.target.innerText)}
                             style={{ outline: 'none', borderBottom: '1px dashed transparent', transition: 'border 0.2s' }}

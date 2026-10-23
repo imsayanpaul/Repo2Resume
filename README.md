@@ -103,19 +103,22 @@ Open `http://localhost:3000` in your browser.
 
 ## 🔑 Environment Variables (Optional)
 
-Keys stay on the server. The `/api` functions (Vercel serverless functions in production, Vite middleware in `npm run dev`) read them, and the browser only ever talks to `/api/gemini` and `/api/github`.
+Keys stay on the server. The `/api` functions (Vercel serverless functions in production, Vite middleware in `npm run dev`) read them, and the browser only ever talks to `/api/generate` and `/api/github`.
 
 Create a `.env.local` file in the project root:
 
 ```env
-# Gemini key for AI bullets when a visitor hasn't added their own
+# AI providers, tried in order: Groq (~1s per request), then Gemini. Either alone works.
+GROQ_API_KEY=
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Optional: GitHub token (no scopes needed) for a shared 5,000 requests/hour limit
 GITHUB_TOKEN=
 ```
 
-On **Vercel**, add the same two variables under *Project Settings → Environment Variables* and redeploy.
+On **Vercel**, add the same variables under *Project Settings → Environment Variables* and redeploy.
+
+**How generation works:** template bullets, built from the README's feature list, the detected stack and real repo stats, appear as soon as each repo's data loads. The AI version then replaces them, usually 1–3 seconds later. If every AI provider is down, the template bullets simply stay.
 
 > ⚠️ **Do not use `VITE_GEMINI_API_KEY`.** Any `VITE_` variable is compiled into the JavaScript bundle, where anyone can read it, and Google revokes keys exposed that way. If an older setup has it, delete it from your environment.
 
@@ -128,7 +131,15 @@ Visitors can still add their own Gemini key or GitHub token in **Settings** (kep
 - Each selected repo costs 2–3 API calls (file listing, commit count, workflows), and the results are cached in the browser until the repo changes.
 - Without any GitHub token, the API allows 60 requests/hour per visitor, enough for about 15–20 repos.
 
-**Honest output:** every number Gemini writes is checked against the README, description and real repo stats (commits, stars). Bullets with an unbacked number are regenerated once, and any number that survives is flagged in the preview with "Check before using".
+**Honest output:** every number the AI writes is checked against the README, description and real repo stats (commits, stars). Bullets with an unbacked number are regenerated once, and any number that survives is flagged in the preview with "Check before using". The AI's tech-stack suggestions are kept only if the README or description mentions them; stack confirmed by `package.json`, `requirements.txt` and similar files is always kept.
+
+### Measuring bullet quality
+
+```bash
+npm run eval
+```
+
+Runs the template engine, Groq and Gemini on a fixed set of real repos and scores each output against the repo's own text: invented numbers, tech the repo doesn't mention, specificity (distinctive words shared with the README), filler words and latency. Options: `--engines template,groq`, `--tone ats`, `--repos owner/name,owner/name`, `--out results.json`.
 
 ---
 

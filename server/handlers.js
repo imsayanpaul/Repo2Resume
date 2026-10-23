@@ -1,18 +1,23 @@
 /**
  * Server-side handlers shared by the Vercel functions in /api and the Vite
- * dev middleware. Keys come from server env vars (GEMINI_API_KEY, GITHUB_TOKEN),
+ * dev middleware. Keys come from server env vars (GROQ_API_KEY, GEMINI_API_KEY,
+ * GITHUB_TOKEN),
  * which are never compiled into the client bundle.
  *
  * Each handler returns { status, json } or { status, body, headers }.
  */
-import { generateWithGemini } from '../src/services/geminiCore.js';
+import { generateWithAI } from '../src/services/aiCore.js';
 
 const TONES = new Set(['xyz', 'star', 'technical', 'ats']);
 
 export function handleConfig(env) {
   return {
     status: 200,
-    json: { serverGemini: Boolean(env.GEMINI_API_KEY), serverGithub: Boolean(env.GITHUB_TOKEN) }
+    json: {
+      serverAi: Boolean(env.GROQ_API_KEY || env.GEMINI_API_KEY),
+      aiProviders: [env.GROQ_API_KEY && 'groq', env.GEMINI_API_KEY && 'gemini'].filter(Boolean),
+      serverGithub: Boolean(env.GITHUB_TOKEN)
+    }
   };
 }
 
@@ -21,12 +26,12 @@ const strList = (v, maxItems, maxLen) => (Array.isArray(v) ? v.filter(x => typeo
 const num = (v) => (Number.isFinite(v) ? v : null);
 
 /**
- * POST /api/gemini  { repo, tone, jdKeywords, customInstruction }
+ * POST /api/generate  { repo, tone, jdKeywords, customInstruction }
  * The prompt is built here, so the endpoint can only generate resume bullets,
  * not act as a general-purpose proxy for the deployment's key.
  */
-export async function handleGemini(body, env) {
-  if (!env.GEMINI_API_KEY) {
+export async function handleGenerate(body, env) {
+  if (!env.GROQ_API_KEY && !env.GEMINI_API_KEY) {
     return { status: 503, json: { error: 'AI generation is not configured on this deployment. Add your own Gemini API key in Settings.' } };
   }
   const repo = body?.repo;
@@ -39,6 +44,7 @@ export async function handleGemini(body, env) {
     description: str(repo.description, 1000),
     language: str(repo.language, 40),
     detected_deps: strList(repo.detected_deps, 40, 60),
+    confirmed_deps: strList(repo.confirmed_deps, 40, 60),
     topics: strList(repo.topics, 20, 50),
     stargazers_count: num(repo.stargazers_count) ?? 0,
     forks_count: num(repo.forks_count) ?? 0,
@@ -47,16 +53,16 @@ export async function handleGemini(body, env) {
   };
 
   try {
-    const result = await generateWithGemini(input, {
+    const result = await generateWithAI(input, {
       tone: TONES.has(body.tone) ? body.tone : 'xyz',
       jdKeywords: strList(body.jdKeywords, 30, 40),
       customInstruction: str(body.customInstruction, 300),
-      apiKey: env.GEMINI_API_KEY
+      keys: { groq: env.GROQ_API_KEY, gemini: env.GEMINI_API_KEY }
     });
     return { status: 200, json: result };
   } catch (err) {
     // A rejected deployment key is the operator's problem, not the visitor's
-    const message = err.fatal ? 'The AI service key on this deployment was rejected. Add your own Gemini API key in Settings.' : err.message;
+    const message = err.keyRejected ? 'The AI service keys on this deployment were rejected. Add your own Gemini API key in Settings.' : err.message;
     return { status: 502, json: { error: message } };
   }
 }

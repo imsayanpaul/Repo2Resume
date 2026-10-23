@@ -6,7 +6,7 @@ import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import Footer from './components/Footer';
 import { fetchUserRepos, enrichRepoDetails, setServerGithub } from './services/github';
-import { generateRepoBullets } from './services/resumeEngine';
+import { generateTemplateBullets, generateAiBullets } from './services/resumeEngine';
 import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
 
 // Storage can throw in private windows or with site data blocked
@@ -40,7 +40,7 @@ export default function App() {
   // Visitor's own keys (browser only). Deployment keys live server-side behind /api.
   const [geminiApiKey, setGeminiApiKey] = useState(() => readStorage('gitresume_gemini_key'));
   const [githubToken, setGithubToken] = useState(() => readStorage('gitresume_gh_token'));
-  const [serverConfig, setServerConfig] = useState({ serverGemini: false, serverGithub: false });
+  const [serverConfig, setServerConfig] = useState({ serverAi: false, serverGithub: false });
 
   // Ask the deployment which keys it holds; a static host without /api just leaves both false
   useEffect(() => {
@@ -48,14 +48,14 @@ export default function App() {
       .then(res => (res.ok ? res.json() : null))
       .then(cfg => {
         if (!cfg) return;
-        const next = { serverGemini: Boolean(cfg.serverGemini), serverGithub: Boolean(cfg.serverGithub) };
+        const next = { serverAi: Boolean(cfg.serverAi), serverGithub: Boolean(cfg.serverGithub) };
         setServerConfig(next);
         setServerGithub(next.serverGithub);
       })
       .catch(() => {});
   }, []);
 
-  const aiEnabled = Boolean(geminiApiKey) || serverConfig.serverGemini;
+  const aiEnabled = Boolean(geminiApiKey) || serverConfig.serverAi;
 
   // Generate Bullets for selected repos with Cache Support
   const handleGenerateBullets = useCallback(async (toneOverride = null, forceRegenerate = false, customInstruction = '') => {
@@ -75,32 +75,50 @@ export default function App() {
       const results = new Array(selectedRepos.length);
       const aiErrors = new Set();
       let templateCount = 0;
+      // Show whatever is ready, in the repos' original order
+      const publish = () => setGeneratedBullets(results.filter(Boolean));
+
+      const toEntry = (repo, result, pending) => ({
+        repoId: repo.id,
+        repoName: repo.name,
+        description: repo.description,
+        techStack: (repo.ai_stack?.length ? repo.ai_stack : repo.detected_deps)?.length > 0
+          ? (repo.ai_stack?.length ? repo.ai_stack : repo.detected_deps)
+          : [repo.language],
+        bullets: result.bullets,
+        html_url: repo.html_url,
+        source: result.source,
+        provider: result.provider,
+        model: result.model,
+        unverified: result.unverified || [],
+        pending
+      });
 
       const generateOne = async (repo, index) => {
         await enrichRepoDetails(repo, githubToken);
+        // Template bullets appear immediately; AI replaces them when it answers
+        results[index] = toEntry(repo, generateTemplateBullets(repo, toneToUse, jdKeywords), aiEnabled);
+        publish();
+        if (!aiEnabled) return;
+
         // A rejected key fails identically for every repo, so stop retrying it
         const keyRejected = [...aiErrors].some(e => /rejected/.test(e));
-        const { bullets, source, model, unverified, aiError } = await generateRepoBullets(
-          repo, toneToUse, keyRejected ? '' : geminiApiKey, jdKeywords, customInstruction,
-          { serverGemini: serverConfig.serverGemini && !keyRejected }
-        );
-        if (aiError) aiErrors.add(aiError);
-        if (source === 'heuristic' && aiEnabled) templateCount++;
-        results[index] = {
-          repoId: repo.id,
-          repoName: repo.name,
-          description: repo.description,
-          techStack: repo.detected_deps?.length > 0 ? repo.detected_deps : [repo.language],
-          bullets,
-          html_url: repo.html_url,
-          source,
-          model,
-          unverified
-        };
+        try {
+          const ai = await generateAiBullets(
+            repo, toneToUse, keyRejected ? '' : geminiApiKey, jdKeywords, customInstruction,
+            { serverAi: serverConfig.serverAi }
+          );
+          results[index] = ai ? toEntry(repo, ai, false) : { ...results[index], pending: false };
+        } catch (err) {
+          aiErrors.add(err.message);
+          templateCount++;
+          results[index] = { ...results[index], pending: false };
+        }
+        publish();
       };
 
-      // A few repos at a time: Gemini calls can take many seconds each,
-      // but firing all of them at once trips the free-tier rate limit
+      // A few repos at a time: AI calls can take seconds each,
+      // but firing all of them at once trips free-tier rate limits
       const CONCURRENCY = 3;
       let next = 0;
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, selectedRepos.length) }, async () => {
@@ -110,7 +128,7 @@ export default function App() {
         }
       }));
 
-      setGeneratedBullets(results);
+      publish();
       setBulletsCache(prev => ({
         ...prev,
         [toneToUse]: results
@@ -119,7 +137,7 @@ export default function App() {
       const notices = [];
       if (aiErrors.size > 0) {
         const scope = templateCount === results.length ? 'these bullets come' : `${templateCount} of ${results.length} projects come`;
-        notices.push(`Gemini AI failed, so ${scope} from the offline template engine. ${[...aiErrors][0]}`);
+        notices.push(`AI generation failed, so ${scope} from the offline template engine. ${[...aiErrors][0]}`);
       }
       const incomplete = selectedRepos.filter(r => r.enrichIncomplete).length;
       if (incomplete > 0) {

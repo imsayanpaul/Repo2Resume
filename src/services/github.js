@@ -2,6 +2,7 @@
  * GitHub API Service
  * Handles fetching repositories, language metrics, dependencies, and demo mock profiles.
  */
+import { extractReadmeFacts } from './readmeFacts.js';
 
 /**
  * Sanitize and extract clean username from raw input (URLs, @handles, etc.)
@@ -117,7 +118,8 @@ function ghFetch(path, personalToken = '') {
 }
 
 // Enrichment results keyed by repo + last update, so revisits cost no API calls
-const CACHE_PREFIX = 'r2r:enrich:v1:';
+// v2: entries also carry parsed README features
+const CACHE_PREFIX = 'r2r:enrich:v2:';
 function readCache(key) {
   try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; }
 }
@@ -175,26 +177,7 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
   // profile README, so neither belongs in a resume's Projects section
   const repos = rawRepos
     .filter(r => !r.fork && r.name.toLowerCase() !== userProfile.login.toLowerCase())
-    .map(r => ({ r, deps: extractFallbackDepsFromRepo(r) }))
-    .map(({ r, deps }) => ({
-      id: r.id,
-      name: r.name,
-      full_name: r.full_name,
-      owner: r.owner?.login || userProfile.login,
-      description: r.description || 'No description provided.',
-      html_url: r.html_url,
-      language: r.language || 'Codebase',
-      stargazers_count: r.stargazers_count,
-      forks_count: r.forks_count,
-      topics: r.topics || [],
-      updated_at: r.updated_at,
-      languages_breakdown: r.language ? { [r.language]: 100 } : {},
-      detected_deps: [...deps.strong, ...deps.weak],
-      strong_deps: deps.strong,
-      weak_deps: deps.weak,
-      commits_count: null, // Real count is filled in by enrichRepoDetails for selected repos
-      enriched: false
-    }));
+    .map(r => toRepoModel(r, userProfile.login));
 
   return {
     user: {
@@ -206,6 +189,49 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
     },
     repos
   };
+}
+
+/**
+ * Shape a GitHub API repo into the app's repo model
+ */
+function toRepoModel(r, login) {
+  const deps = extractFallbackDepsFromRepo(r);
+  return {
+    id: r.id,
+    name: r.name,
+    full_name: r.full_name,
+    owner: r.owner?.login || login,
+    description: r.description || 'No description provided.',
+    html_url: r.html_url,
+    language: r.language || 'Codebase',
+    stargazers_count: r.stargazers_count,
+    forks_count: r.forks_count,
+    topics: r.topics || [],
+    updated_at: r.updated_at,
+    languages_breakdown: r.language ? { [r.language]: 100 } : {},
+    detected_deps: [...deps.strong, ...deps.weak],
+    strong_deps: deps.strong,
+    weak_deps: deps.weak,
+    commits_count: null, // Real count is filled in by enrichRepoDetails for selected repos
+    enriched: false
+  };
+}
+
+/**
+ * Fetch one repository by "owner/name" (used by the eval script)
+ */
+export async function fetchRepo(fullName, personalToken = '') {
+  const res = await ghFetch(`/repos/${fullName}`, personalToken);
+  if (!res.ok) throw githubError(res, `Failed to fetch ${fullName}`);
+  const r = await res.json();
+  return toRepoModel(r, r.owner?.login);
+}
+
+/**
+ * Every technology name the detectors know, for checking claims in bullets
+ */
+export function knownTechNames() {
+  return [...new Set([...keywordsMap.map(([, name]) => name), ...Object.values(MANIFEST_PACKAGES)])];
 }
 
 /**
@@ -282,7 +308,9 @@ export async function enrichRepoDetails(repo, personalToken = '') {
     manifestDeps: Array.from(manifestDeps),
     weakDeps: repo.weak_deps || [],
     commits: typeof commits === 'number' ? commits : null,
-    readmeText: (readmeText || '').slice(0, 2000)
+    readmeText: (readmeText || '').slice(0, 2000),
+    // Parsed from the full README before it's trimmed for the prompt
+    readmeFeatures: extractReadmeFacts(readmeText).features
   };
   applyEnrichment(repo, enrichment);
 
@@ -307,11 +335,13 @@ async function fetchRawFile(fullName, path) {
   return '';
 }
 
-function applyEnrichment(repo, { manifestDeps, weakDeps, commits, readmeText }) {
+function applyEnrichment(repo, { manifestDeps, weakDeps, commits, readmeText, readmeFeatures = [] }) {
   const deps = new Set([...(repo.strong_deps || []), ...weakDeps, ...manifestDeps]);
   repo.detected_deps = Array.from(deps);
+  repo.manifest_deps = manifestDeps;
   if (typeof commits === 'number') repo.commits_count = commits;
   repo.readmeText = readmeText || '';
+  repo.readme_features = readmeFeatures;
   repo.enriched = true;
 }
 
@@ -400,6 +430,70 @@ function detectDepsFromManifest(file, text) {
   return Array.from(found);
 }
 
+// Keyword -> Display Name mapping (ordered by specificity)
+const keywordsMap = [
+  // Frontend
+  ['reactjs', 'React'], ['react-native', 'React Native'], ['react', 'React'],
+  ['nextjs', 'Next.js'], ['next.js', 'Next.js'],
+  ['vue', 'Vue.js'], ['nuxt', 'Nuxt.js'],
+  ['angular', 'Angular'], ['svelte', 'Svelte'],
+  ['gatsby', 'Gatsby'], ['vite', 'Vite'],
+  ['tailwind', 'Tailwind CSS'], ['bootstrap', 'Bootstrap'],
+  ['material-ui', 'Material UI'],
+  // Backend
+  ['nodejs', 'Node.js'], ['node.js', 'Node.js'],
+  ['express', 'Express'], ['fastapi', 'FastAPI'],
+  ['django', 'Django'], ['flask', 'Flask'],
+  ['spring-boot', 'Spring Boot'], ['spring', 'Spring Boot'],
+  ['nestjs', 'NestJS'], ['rails', 'Ruby on Rails'],
+  ['laravel', 'Laravel'], ['fastify', 'Fastify'],
+  // Databases
+  ['postgresql', 'PostgreSQL'], ['postgres', 'PostgreSQL'],
+  ['mongodb', 'MongoDB'], ['mongo', 'MongoDB'],
+  ['mysql', 'MySQL'], ['sqlite', 'SQLite'],
+  ['redis', 'Redis'], ['elasticsearch', 'Elasticsearch'],
+  ['dynamodb', 'DynamoDB'], ['neo4j', 'Neo4j'],
+  // ORMs
+  ['prisma', 'Prisma'], ['drizzle', 'Drizzle ORM'],
+  ['sequelize', 'Sequelize'], ['typeorm', 'TypeORM'],
+  ['mongoose', 'Mongoose'], ['sqlalchemy', 'SQLAlchemy'],
+  // Cloud & BaaS
+  ['firebase', 'Firebase'], ['supabase', 'Supabase'],
+  ['aws', 'AWS'], ['azure', 'Azure'],
+  ['vercel', 'Vercel'], ['heroku', 'Heroku'],
+  // DevOps
+  ['docker', 'Docker'], ['kubernetes', 'Kubernetes'], ['k8s', 'Kubernetes'],
+  ['terraform', 'Terraform'], ['nginx', 'Nginx'],
+  ['github-actions', 'GitHub Actions'],
+  // APIs & Protocols
+  ['graphql', 'GraphQL'], ['grpc', 'gRPC'],
+  ['websocket', 'WebSockets'], ['socket.io', 'Socket.io'],
+  ['trpc', 'tRPC'],
+  // Auth
+  ['jwt', 'JWT'], ['oauth', 'OAuth'], ['auth0', 'Auth0'],
+  // AI & ML
+  ['openai', 'OpenAI API'], ['gemini', 'Gemini API'],
+  ['langchain', 'LangChain'], ['llm', 'LLM'],
+  ['tensorflow', 'TensorFlow'], ['pytorch', 'PyTorch'],
+  ['huggingface', 'Hugging Face'], ['pinecone', 'Pinecone'],
+  ['machine-learning', 'Machine Learning'],
+  // Messaging
+  ['kafka', 'Apache Kafka'], ['rabbitmq', 'RabbitMQ'],
+  // Payment
+  ['stripe', 'Stripe'], ['twilio', 'Twilio'],
+  // Languages
+  ['typescript', 'TypeScript'], ['python', 'Python'],
+  ['rust', 'Rust'], ['golang', 'Go'],
+  // Testing
+  ['jest', 'Jest'], ['cypress', 'Cypress'],
+  ['playwright', 'Playwright'], ['pytest', 'PyTest'],
+  // State
+  ['redux', 'Redux'], ['zustand', 'Zustand'],
+  // Desktop/Mobile
+  ['electron', 'Electron'], ['tauri', 'Tauri'],
+  ['chrome-extension', 'Chrome Extension'], ['chrome extension', 'Chrome Extension'],
+  ];
+
 /**
  * Quick heuristic tech stack detector from repository metadata & topics.
  * Returns strong matches (language, name, topics) and weak ones (description
@@ -412,69 +506,6 @@ function extractFallbackDepsFromRepo(repo) {
 
   if (repo.language) strong.add(repo.language);
 
-  // Keyword -> Display Name mapping (ordered by specificity)
-  const keywordsMap = [
-    // Frontend
-    ['reactjs', 'React'], ['react-native', 'React Native'], ['react', 'React'],
-    ['nextjs', 'Next.js'], ['next.js', 'Next.js'],
-    ['vue', 'Vue.js'], ['nuxt', 'Nuxt.js'],
-    ['angular', 'Angular'], ['svelte', 'Svelte'],
-    ['gatsby', 'Gatsby'], ['vite', 'Vite'],
-    ['tailwind', 'Tailwind CSS'], ['bootstrap', 'Bootstrap'],
-    ['material-ui', 'Material UI'],
-    // Backend
-    ['nodejs', 'Node.js'], ['node.js', 'Node.js'],
-    ['express', 'Express'], ['fastapi', 'FastAPI'],
-    ['django', 'Django'], ['flask', 'Flask'],
-    ['spring-boot', 'Spring Boot'], ['spring', 'Spring Boot'],
-    ['nestjs', 'NestJS'], ['rails', 'Ruby on Rails'],
-    ['laravel', 'Laravel'], ['fastify', 'Fastify'],
-    // Databases
-    ['postgresql', 'PostgreSQL'], ['postgres', 'PostgreSQL'],
-    ['mongodb', 'MongoDB'], ['mongo', 'MongoDB'],
-    ['mysql', 'MySQL'], ['sqlite', 'SQLite'],
-    ['redis', 'Redis'], ['elasticsearch', 'Elasticsearch'],
-    ['dynamodb', 'DynamoDB'], ['neo4j', 'Neo4j'],
-    // ORMs
-    ['prisma', 'Prisma'], ['drizzle', 'Drizzle ORM'],
-    ['sequelize', 'Sequelize'], ['typeorm', 'TypeORM'],
-    ['mongoose', 'Mongoose'], ['sqlalchemy', 'SQLAlchemy'],
-    // Cloud & BaaS
-    ['firebase', 'Firebase'], ['supabase', 'Supabase'],
-    ['aws', 'AWS'], ['azure', 'Azure'],
-    ['vercel', 'Vercel'], ['heroku', 'Heroku'],
-    // DevOps
-    ['docker', 'Docker'], ['kubernetes', 'Kubernetes'], ['k8s', 'Kubernetes'],
-    ['terraform', 'Terraform'], ['nginx', 'Nginx'],
-    ['github-actions', 'GitHub Actions'],
-    // APIs & Protocols
-    ['graphql', 'GraphQL'], ['grpc', 'gRPC'],
-    ['websocket', 'WebSockets'], ['socket.io', 'Socket.io'],
-    ['trpc', 'tRPC'],
-    // Auth
-    ['jwt', 'JWT'], ['oauth', 'OAuth'], ['auth0', 'Auth0'],
-    // AI & ML
-    ['openai', 'OpenAI API'], ['gemini', 'Gemini API'],
-    ['langchain', 'LangChain'], ['llm', 'LLM'],
-    ['tensorflow', 'TensorFlow'], ['pytorch', 'PyTorch'],
-    ['huggingface', 'Hugging Face'], ['pinecone', 'Pinecone'],
-    ['machine-learning', 'Machine Learning'],
-    // Messaging
-    ['kafka', 'Apache Kafka'], ['rabbitmq', 'RabbitMQ'],
-    // Payment
-    ['stripe', 'Stripe'], ['twilio', 'Twilio'],
-    // Languages
-    ['typescript', 'TypeScript'], ['python', 'Python'],
-    ['rust', 'Rust'], ['golang', 'Go'],
-    // Testing
-    ['jest', 'Jest'], ['cypress', 'Cypress'],
-    ['playwright', 'Playwright'], ['pytest', 'PyTest'],
-    // State
-    ['redux', 'Redux'], ['zustand', 'Zustand'],
-    // Desktop/Mobile
-    ['electron', 'Electron'], ['tauri', 'Tauri'],
-    ['chrome-extension', 'Chrome Extension'], ['chrome extension', 'Chrome Extension'],
-  ];
 
   // Whole-word matching, so "trust" isn't Rust, "invite" isn't Vite and "reactive" isn't React
   const matches = (text, keyword) =>

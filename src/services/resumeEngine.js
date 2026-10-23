@@ -1,50 +1,74 @@
 /**
- * AI Resume Bullet Generator Service
+ * Resume Bullet Generator Service
  * Supports Google XYZ Formula ("Accomplished X using Y resulting in Z"), STAR method,
- * and Gemini (user's key, or the deployment's key via /api/gemini) with local heuristic fallbacks.
+ * and more. Template bullets come back instantly from repo evidence; AI bullets
+ * (a visitor's own Gemini key, or the deployment's Groq/Gemini via /api/generate)
+ * replace them when ready.
  */
-import { generateWithGemini } from './geminiCore.js';
+import { generateWithAI } from './aiCore.js';
 
 /**
- * Generate Resume Bullets for a given repo
- * @param {Object} repo - Repository object
- * @param {String} tone - 'xyz' | 'star' | 'technical' | 'ats'
- * @param {String} apiKey - User's Gemini API Key (optional)
- * @param {Array} jdKeywords - Target Job Description matching keywords (optional)
- * @param {String} customInstruction - Specific user instructions for the bullet generation
- * @param {Object} options - { serverGemini: true when /api/gemini has a key configured }
- * @returns {Promise<{bullets: string[], source: 'gemini'|'heuristic', model: string|null, unverified: string[], aiError: string|null}>}
+ * Instant, offline bullets built only from repo evidence (README features,
+ * detected stack, infrastructure files, real commit count).
  */
-export async function generateRepoBullets(repo, tone = 'xyz', apiKey = '', jdKeywords = [], customInstruction = '', { serverGemini = false } = {}) {
-  let aiError = null;
-  const userKey = (apiKey || '').trim();
+export function generateTemplateBullets(repo, tone = 'xyz', jdKeywords = []) {
+  return { bullets: generateHeuristicBullets(repo, tone, jdKeywords), source: 'heuristic', provider: null, model: null, unverified: [], techStack: repo.detected_deps || [] };
+}
 
-  if (userKey || serverGemini) {
+/**
+ * AI bullets. Tries a visitor's own Gemini key first (direct from the browser),
+ * then the deployment's providers. Returns null when no AI is available.
+ * @param {Object} options - { serverAi: true when /api/generate has a provider configured }
+ * @returns {Promise<{bullets, source: 'ai', provider, model, unverified, techStack} | null>}
+ * @throws when every configured AI path fails
+ */
+export async function generateAiBullets(repo, tone = 'xyz', apiKey = '', jdKeywords = [], customInstruction = '', { serverAi = false } = {}) {
+  const userKey = (apiKey || '').trim();
+  if (!userKey && !serverAi) return null;
+
+  const input = toAiInput(repo);
+  let userKeyError = null;
+  let result = null;
+  if (userKey) {
     try {
-      const input = toGeminiInput(repo);
-      const result = userKey
-        ? await generateWithGemini(input, { tone, jdKeywords, customInstruction, apiKey: userKey })
-        : await generateViaServer(input, { tone, jdKeywords, customInstruction });
-      // Gemini reads the README, so its stack is more accurate than keyword detection
-      if (result.techStack?.length > 0) repo.detected_deps = result.techStack;
-      return { bullets: result.bullets, source: 'gemini', model: result.model, unverified: result.unverified || [], aiError: null };
+      result = await generateWithAI(input, { tone, jdKeywords, customInstruction, keys: { gemini: userKey }, order: ['gemini'] });
     } catch (err) {
-      console.warn('Gemini generation failed, falling back to smart rule engine:', err.message);
-      aiError = err.message;
+      userKeyError = err;
     }
   }
+  if (!result && serverAi) {
+    result = await generateViaServer(input, { tone, jdKeywords, customInstruction });
+  }
+  if (!result) throw userKeyError || new Error('AI generation failed.');
 
-  // Local heuristic generator (zero latency, no external calls)
-  return { bullets: generateHeuristicBullets(repo, tone, jdKeywords), source: 'heuristic', model: null, unverified: [], aiError };
+  // Kept separate from detected_deps, so one AI answer never becomes
+  // "evidence" for the next one
+  if (result.techStack?.length > 0) repo.ai_stack = result.techStack;
+  return { ...result, source: 'ai', unverified: result.unverified || [] };
+}
+
+/**
+ * Template first, then AI if available: the single-call form used by the eval script.
+ */
+export async function generateRepoBullets(repo, tone = 'xyz', apiKey = '', jdKeywords = [], customInstruction = '', options = {}) {
+  try {
+    const ai = await generateAiBullets(repo, tone, apiKey, jdKeywords, customInstruction, options);
+    if (ai) return { ...ai, aiError: null };
+  } catch (err) {
+    return { ...generateTemplateBullets(repo, tone, jdKeywords), aiError: err.message };
+  }
+  return { ...generateTemplateBullets(repo, tone, jdKeywords), aiError: null };
 }
 
 // Only the fields the prompt needs, so the server request stays small
-function toGeminiInput(repo) {
+export function toAiInput(repo) {
   return {
     name: repo.name,
     description: repo.description === 'No description provided.' ? '' : repo.description,
     language: repo.language === 'Codebase' ? '' : repo.language,
     detected_deps: repo.detected_deps || [],
+    // Stack the repo itself proves (language, topics, manifests); always kept
+    confirmed_deps: [...new Set([...(repo.strong_deps || []), ...(repo.manifest_deps || [])])],
     topics: repo.topics || [],
     stargazers_count: repo.stargazers_count || 0,
     forks_count: repo.forks_count || 0,
@@ -54,7 +78,7 @@ function toGeminiInput(repo) {
 }
 
 async function generateViaServer(input, { tone, jdKeywords, customInstruction }) {
-  const res = await fetch('/api/gemini', {
+  const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ repo: input, tone, jdKeywords, customInstruction })
@@ -93,12 +117,19 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
 
   // Every clause below is built from evidence (description, detected stack, real
   // commit count, stars); nothing claims latency, scale or quality we can't see
-  const impl = getImplementationDetail(repo);
+  // README feature lists are the most specific true content we have
+  const readmeFeatures = repo.readme_features || [];
+  const featureClause = readmeFeatures.length >= 2
+    ? `, featuring ${joinList(readmeFeatures.slice(0, 3))}`
+    : (featureHighlights ? ` that ${featureHighlights}` : '');
+  const extraFeatures = readmeFeatures.slice(3, 6);
+  const baseImpl = getImplementationDetail(repo);
+  const impl = baseImpl || (extraFeatures.length > 0 ? `delivering ${joinList(extraFeatures)}` : '');
   const closing = getClosingBullet(repo, verbs);
 
   if (tone === 'xyz') {
     return [
-      `${verbs.lead} ${name}, ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''}, leveraging ${techStack}${jdHighlight}${starsText}.`,
+      `${verbs.lead} ${name}, ${projectPurpose}${featureClause}, built with ${techStack}${jdHighlight}${starsText}.`,
       `${verbs.mid} ${arch}${impl ? `, ${impl}` : ''}.`,
       closing
     ];
@@ -106,7 +137,7 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
 
   if (tone === 'star') {
     return [
-      `Identified a need for ${getProjectNeed(repo)}; ${verbs.lead.toLowerCase()} ${name} using ${techStack} — ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''}${starsText}.`,
+      `Identified a need for ${getProjectNeed(repo)}; ${verbs.lead.toLowerCase()} ${name} using ${techStack} — ${projectPurpose}${featureClause}${starsText}.`,
       `${verbs.mid} ${arch}${impl ? `, ${impl}` : ''}.`,
       closing
     ];
@@ -114,7 +145,7 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
 
   if (tone === 'technical') {
     return [
-      `${verbs.lead} ${name}${jdHighlight} — ${projectPurpose}${featureHighlights ? ` that ${featureHighlights}` : ''} — using ${techStack}.`,
+      `${verbs.lead} ${name}${jdHighlight} — ${projectPurpose}${featureClause} — using ${techStack}.`,
       `${getTechnicalLayers(repo, lang)}.`,
       closing
     ];
@@ -122,7 +153,7 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
 
   // Default ATS Minimalist
   return [
-    `${verbs.lead} ${name} using ${techStack} — ${projectPurpose}${featureHighlights ? `; ${featureHighlights}` : ''}${starsText}.`,
+    `${verbs.lead} ${name} using ${techStack} — ${projectPurpose}${featureClause}${starsText}.`,
     `${verbs.mid} ${arch}${impl ? `, ${impl}` : ''}.`,
     closing
   ];
@@ -269,6 +300,12 @@ function extractFeatureHighlights(repo) {
   
   // No clear feature list found — return empty to avoid duplicating the purpose
   return '';
+}
+
+function joinList(items) {
+  if (items.length <= 1) return items.join('');
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
 function withArticle(word) {
