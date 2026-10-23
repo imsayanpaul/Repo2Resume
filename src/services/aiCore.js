@@ -4,53 +4,79 @@
  * Same prompt, fact list and number checks for every provider. No browser APIs here.
  */
 
+// Repo stats below these sizes undersell a project ("2 GitHub stars"), so the
+// AI is never offered them and the number check rejects them
+export const MIN_STARS_TO_CITE = 25;
+export const MIN_FORKS_TO_CITE = 10;
+export const MIN_COMMITS_TO_CITE = 20;
+export const MAX_BULLET_WORDS = 40;
+
 const TONE_INSTRUCTIONS = {
-  xyz: `Google XYZ Formula — "Accomplished [X] as measured by [Y], by doing [Z]."
-    - X = a specific, concrete accomplishment (what the project does for users)
-    - Y = a measure taken ONLY from the FACTS or README (commit count, stars, number of supported formats or integrations, etc.). If no real measure exists, use concrete scope instead (what it handles, which integrations it connects) — never an invented number
-    - Z = the specific technical approach / stack used
-    Example (FACTS: 262 commits; README lists 4 export formats): "Built an AI career assistant that scores resumes against job postings and exports to 4 formats (PDF, DOCX, LaTeX, Overleaf), shipped across 262 commits, by combining React, Express, and the Gemini API."`,
+  xyz: `Google XYZ Formula — each bullet carries three things: what was built (X), its concrete scope or result (Y), and how it was built (Z).
+    - Convey the formula; never write the literal words "Accomplished" or "as measured by"
+    - Y comes from the README: what it handles, which formats or integrations it supports, what a user can now do. Repository statistics are not results
+    Example: "Built an AI career assistant that scores resumes against live job postings and exports to PDF, LaTeX and Overleaf, using React, Express and the Gemini API."`,
 
   star: `STAR Method — Each bullet should cover:
     - Situation/Task: What challenge or need the project addresses
     - Action: What you specifically built/engineered
-    - Result: A concrete outcome described by what the project now does, or a measure from the FACTS/README
-    Example: "Identified that job seekers retyped the same details into every application; built a React and Express assistant that scores resumes against postings and drafts tailored cover letters, consolidating the search-to-offer workflow in one app."`,
+    - Result: what the project now does for its user, as the README describes it
+    Example: "Replaced retyping the same details into every application with a React and Express assistant that scores resumes against postings and drafts tailored cover letters."`,
 
   technical: `Technical Depth — Focus on architecture, engineering decisions, and system design:
-    - Emphasize design patterns, protocols, data flow, and infrastructure that the README or dependencies show
+    - Emphasize design patterns, protocols, data flow, and infrastructure that the README, files or dependencies show
     - Describe how components connect rather than claiming performance numbers
-    Example: "Designed a FastAPI service that ingests Instagram DMs via webhook, transcribes audio with Whisper, and stores summaries in PostgreSQL through SQLAlchemy, with a React client querying a full-text search endpoint."`,
+    Example: "Designed a FastAPI service that ingests Instagram DMs via webhook, transcribes audio with Whisper, and stores summaries in PostgreSQL through SQLAlchemy."`,
 
   ats: `ATS Minimal — Concise, keyword-rich bullets optimized for Applicant Tracking Systems:
     - Start with strong action verbs (Architected, Engineered, Deployed, Built)
     - Pack in relevant technologies naturally
-    - Keep each bullet to 1-2 lines maximum
-    Example: "Built AI career assistant with React, Express, Supabase, and Gemini API; implemented ATS resume scoring, cover letter generation, and application tracking."`
+    - Keep each bullet to one line, about 15-20 words
+    Example: "Built AI career assistant with React, Express, Supabase, and Gemini API; added ATS resume scoring and cover letter generation."`
 };
 
+const citableStars = (input) => (input.stargazers_count >= MIN_STARS_TO_CITE ? input.stargazers_count : null);
+const citableForks = (input) => (input.forks_count >= MIN_FORKS_TO_CITE ? input.forks_count : null);
+const citableCommits = (input) => (typeof input.commits_count === 'number' && input.commits_count >= MIN_COMMITS_TO_CITE ? input.commits_count : null);
+
 /**
- * Text the bullets are allowed to draw numbers from.
+ * Text the bullets are allowed to draw numbers from. Small repo stats are
+ * left out on purpose, so a bullet citing "2 stars" fails the number check.
  */
 function factSources(input) {
   return [
     input.name, input.description, input.readmeText, input.customInstruction,
     (input.detected_deps || []).join(' '), (input.topics || []).join(' '),
-    `${input.stargazers_count ?? ''} ${input.forks_count ?? ''} ${input.commits_count ?? ''}`
+    (input.commit_subjects || []).join(' '),
+    [citableStars(input), citableForks(input), citableCommits(input)].filter(v => v !== null).join(' ')
   ].filter(Boolean).join(' \n ');
 }
 
 function buildFactsList(input) {
   const facts = [];
-  // A tiny commit count ("across 2 commits") undersells the project, so only offer a meaningful one
-  if (typeof input.commits_count === 'number' && input.commits_count >= 20) facts.push(`${input.commits_count} commits by the author`);
-  if (input.stargazers_count > 0) facts.push(`${input.stargazers_count} GitHub stars`);
-  if (input.forks_count > 0) facts.push(`${input.forks_count} forks`);
-  return facts.length > 0 ? facts.join('; ') : 'None (do not use any repository statistics)';
+  if (citableCommits(input) !== null) facts.push(`${input.commits_count} commits by the author`);
+  if (citableStars(input) !== null) facts.push(`${input.stargazers_count} GitHub stars`);
+  if (citableForks(input) !== null) facts.push(`${input.forks_count} forks`);
+  return facts.length > 0 ? facts.join('; ') : 'None (do not cite any repository statistics)';
+}
+
+/**
+ * "thin" when there's little to go on: no real README and few commit messages.
+ * The prompt then asks for modest bullets, and the UI tells the user to review them.
+ */
+export function evidenceLevel(input) {
+  const readmeLength = (input.readmeText || '').replace(/\s+/g, ' ').trim().length;
+  if (readmeLength >= 400) return 'rich';
+  if ((input.commit_subjects || []).length >= 5) return 'partial';
+  return 'thin';
 }
 
 export function buildPrompt(input, tone, jdKeywords = [], customInstruction = '') {
   const toneGuide = TONE_INSTRUCTIONS[tone] || TONE_INSTRUCTIONS.xyz;
+  const level = evidenceLevel(input);
+  const commits = (input.commit_subjects || []).slice(0, 25);
+  const files = (input.top_level_files || []).slice(0, 30);
+
   return `You are an elite technical resume writer who has reviewed 10,000+ engineering resumes at FAANG companies.
 
 YOUR TASK: Write 3 high-impact resume bullet points for a software engineering project. These bullets will appear under "PROJECTS" on a resume.
@@ -61,21 +87,25 @@ Description: ${input.description || 'Not provided'}
 Primary Language: ${input.language || 'Not specified'}
 Detected Dependencies/Frameworks (partly guessed from keywords; trust the README over this list): ${(input.detected_deps || []).join(', ') || 'Not detected'}
 GitHub Topics/Tags: ${(input.topics || []).join(', ') || 'None'}
+${files.length > 0 ? `Top-level files and folders: ${files.join(', ')}` : ''}
 
-=== FACTS (the only repository statistics you may cite) ===
+=== REPOSITORY STATISTICS (background only) ===
 ${buildFactsList(input)}
-${input.readmeText ? `\n=== README CONTENT (analyze this carefully for features, architecture, and purpose) ===\n${input.readmeText.slice(0, 2000)}` : ''}
+These show effort, not impact. Mention at most one of them, at most once across all bullets, and never as the result or measure of a bullet.
+${input.readmeText ? `\n=== README CONTENT (analyze this carefully for features, architecture, and purpose) ===\n${input.readmeText.slice(0, 2000)}` : '\n=== README ===\nNone. The repository has no usable README.'}
+${commits.length > 0 ? `\n=== RECENT COMMIT MESSAGES BY THE AUTHOR (evidence of what was built) ===\n${commits.map(c => `- ${c}`).join('\n')}` : ''}
 ${jdKeywords.length > 0 ? `\n=== TARGET JOB KEYWORDS (weave in only those the project actually uses) ===\n${jdKeywords.join(', ')}` : ''}
 ${customInstruction ? `\n=== USER'S SPECIFIC INSTRUCTION ===\n${customInstruction}` : ''}
-
+${level === 'thin' ? `\n=== LIMITED EVIDENCE ===\nThis repository has very little information. Describe ONLY what the description, file names and commit messages state. Keep every bullet short and plain. Do not guess at architecture, features or integrations that aren't named above.\n` : ''}
 === CRITICAL RULES ===
-1. READ THE DESCRIPTION AND README CAREFULLY. Your bullets must describe what THIS SPECIFIC project actually does — its real features, its real purpose, its real user value. Do NOT write generic filler.
-2. The FIRST bullet should be a comprehensive project summary: what it is, what it does for users, and what core features it has. This bullet should be the longest (2-3 lines).
-3. Bullets 2 and 3 should highlight specific technical work or architecture decisions RELEVANT to what the project actually does.
+1. READ THE DESCRIPTION, README AND COMMIT MESSAGES CAREFULLY. Your bullets must describe what THIS SPECIFIC project actually does — its real features, its real purpose, its real user value. Do NOT write generic filler.
+2. LENGTH: every bullet is at most 30 words (the first may run to 35). One idea per bullet. Do not repeat the project name after the first bullet.
+3. The FIRST bullet summarizes what the project is and its core features. Bullets 2 and 3 highlight specific technical work or architecture decisions.
 4. Use the ACTUAL tech stack from the repo. If the README mentions specific technologies, include those — not just the primary language.
-5. NUMBERS: Every number in your bullets must appear in the FACTS, the description, or the README. NEVER invent user counts, request volumes, latencies ("sub-100ms"), percentages, uptime, accuracy, or speedups. A bullet with no number is far better than a bullet with a made-up one — this goes on a real person's resume and will be questioned in interviews.
-6. NEVER fabricate features that aren't evidenced by the description or README.
-7. Avoid empty filler words recruiters skim past: robust, seamless(ly), cutting-edge, state-of-the-art, production-grade, high-performance, scalable, comprehensive, end-to-end, leveraging, innovative. Say what the thing does instead.
+5. NUMBERS: Every number in your bullets must appear in the statistics, the description, the README or the commit messages. NEVER invent user counts, request volumes, latencies ("sub-100ms"), percentages, uptime, accuracy, or speedups. A bullet with no number is far better than a bullet with a made-up one — this goes on a real person's resume and will be questioned in interviews.
+6. NEVER fabricate features that aren't evidenced by the description, README, files or commit messages.
+7. NO UNPROVEN OUTCOMES: don't claim the project improves, boosts, increases, reduces, speeds up or saves anything (e.g. "improving ATS pass rates", "fast form-filling") unless the README says so. Describe what it does, not what it supposedly achieves.
+8. Avoid empty filler words recruiters skim past: robust, seamless(ly), cutting-edge, state-of-the-art, production-grade, high-performance, scalable, comprehensive, end-to-end, leveraging, innovative. Never open a bullet with "Accomplished". Start each bullet with a different action verb.
 
 === TONE/STYLE ===
 ${toneGuide}
@@ -90,6 +120,34 @@ Return ONLY a valid JSON object (no markdown codeblock wrapper):
   "correctedTechStack": ["React", "Node.js", "PostgreSQL", "etc..."]
 }`;
 }
+
+const OUTCOME_CLAIM = /\b(improv(e|es|ed|ing)|boost(s|ed|ing)?|increas(e|es|ed|ing)|reduc(e|es|ed|ing)|cut(s|ting)?|sav(e|es|ed|ing)|speed(s|ing)? up|accelerat(e|es|ed|ing)|faster|enhanc(e|es|ed|ing)|optimiz(e|es|ed|ing))\b[^.;]{0,40}\b(rates?|time|times|productivity|efficiency|performance|conversion|engagement|throughput|latency|speed|accuracy|callbacks?|pass)\b/i;
+
+/**
+ * Style problems the prompt asks the model to avoid, checked so a bad answer
+ * gets one corrective pass. Each entry is a short instruction for the retry.
+ */
+export function findStyleIssues(bullets, input) {
+  const issues = [];
+  const text = bullets.join(' \n ');
+  const evidence = `${input.readmeText || ''} ${input.description || ''}`;
+  bullets.forEach((b, i) => {
+    const words = b.split(/\s+/).filter(Boolean).length;
+    if (words > MAX_BULLET_WORDS) issues.push(`bullet ${i + 1} has ${words} words; cut it to 30 or fewer`);
+    if (/^accomplished\b/i.test(b.trim())) issues.push(`bullet ${i + 1} opens with "Accomplished"; use a concrete action verb`);
+  });
+  if (/as measured by/i.test(text)) issues.push('remove the phrase "as measured by"');
+  const statMentions = (text.match(/\b\d[\d,]*\+?\s+(commits?|stars?|forks?)\b/gi) || []).length;
+  if (statMentions > 1) issues.push('repository statistics appear more than once; keep at most one mention');
+  if (/\b(measured|proven|demonstrated|evidenced)\b[^.;]{0,30}\b(commits?|stars?)\b/i.test(text)) issues.push('commit or star counts are used as a measure of impact; describe what the project does instead');
+  const claim = text.match(OUTCOME_CLAIM);
+  if (claim && !evidence.toLowerCase().includes(claim[0].toLowerCase())) issues.push(`unproven outcome claim "${claim[0]}"; describe what it does instead`);
+  const filler = text.match(FILLER_WORDS);
+  if (filler) issues.push(`remove the filler word "${filler[0]}"`);
+  return issues;
+}
+
+const FILLER_WORDS = /\b(robust|seamless(ly)?|cutting-edge|state-of-the-art|production-grade|high-performance|comprehensive|leverag(e|es|ed|ing)|innovative|best-in-class|world-class)\b/i;
 
 /**
  * Numbers in the bullets that don't appear anywhere in the source material.
@@ -323,33 +381,43 @@ async function callProviders(prompt, keys, fetchImpl, order, only = null) {
 
 /**
  * Generate bullets with whichever configured provider answers first,
- * rejecting numbers that aren't backed by the repo's facts.
+ * rejecting numbers that aren't backed by the repo's facts and the style
+ * problems findStyleIssues names (length, "Accomplished", stats as impact,
+ * unproven outcome claims).
  * @param {Object} input - plain repo fields (name, description, language, detected_deps,
- *   confirmed_deps, topics, stargazers_count, forks_count, commits_count, readmeText)
+ *   confirmed_deps, topics, stargazers_count, forks_count, commits_count, readmeText,
+ *   commit_subjects, top_level_files)
  * @param {Object} options - { tone, jdKeywords, customInstruction, keys: { groq, gemini }, order, fetchImpl }
- * @returns {Promise<{bullets, techStack, provider, model, unverified: string[]}>}
+ * @returns {Promise<{bullets, techStack, provider, model, unverified: string[], styleIssues: string[], evidence}>}
  */
 export async function generateWithAI(input, { tone = 'xyz', jdKeywords = [], customInstruction = '', keys = {}, order = DEFAULT_PROVIDER_ORDER, fetchImpl = fetch }) {
   const facts = { ...input, customInstruction };
   const prompt = buildPrompt(input, tone, jdKeywords, customInstruction);
-  let result = await callProviders(prompt, keys, fetchImpl, order);
-  let unverified = findUnbackedNumbers(result.bullets, facts);
+  const check = (bullets) => ({ unverified: findUnbackedNumbers(bullets, facts), styleIssues: findStyleIssues(bullets, input) });
+  const problemCount = (c) => c.unverified.length * 3 + c.styleIssues.length; // invented numbers matter most
 
-  if (unverified.length > 0) {
-    // One corrective pass: name the invented numbers and ask for a rewrite without them
-    const retryPrompt = `${prompt}\n\n=== CORRECTION ===\nYour previous answer used numbers that are not in the FACTS, description, or README: ${unverified.join(', ')}. Rewrite all 3 bullets without any of them. Previous answer:\n${JSON.stringify({ bullets: result.bullets })}`;
+  let result = await callProviders(prompt, keys, fetchImpl, order);
+  let checked = check(result.bullets);
+
+  if (problemCount(checked) > 0) {
+    // One corrective pass naming every problem found
+    const problems = [
+      ...(checked.unverified.length ? [`these numbers are not in the statistics, description, README or commits: ${checked.unverified.join(', ')}`] : []),
+      ...checked.styleIssues
+    ];
+    const retryPrompt = `${prompt}\n\n=== CORRECTION ===\nYour previous answer had these problems:\n${problems.map(p => `- ${p}`).join('\n')}\nRewrite all 3 bullets fixing every one. Previous answer:\n${JSON.stringify({ bullets: result.bullets })}`;
     try {
       // Reuse the model that just answered rather than re-queueing on a busy one
       const retry = await callProviders(retryPrompt, keys, fetchImpl, order, { provider: result.provider, model: result.model });
-      const retryUnverified = findUnbackedNumbers(retry.bullets, facts);
-      if (retryUnverified.length < unverified.length) {
+      const retryChecked = check(retry.bullets);
+      if (problemCount(retryChecked) < problemCount(checked)) {
         result = { ...retry, techStack: retry.techStack.length ? retry.techStack : result.techStack };
-        unverified = retryUnverified;
+        checked = retryChecked;
       }
     } catch {
-      // Keep the first answer; its unverified numbers are reported to the user
+      // Keep the first answer; its remaining problems are reported to the user
     }
   }
 
-  return { ...result, techStack: mergeTechStack(result.techStack, input), unverified };
+  return { ...result, techStack: mergeTechStack(result.techStack, input), ...checked, evidence: evidenceLevel(input) };
 }

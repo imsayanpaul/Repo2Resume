@@ -543,6 +543,11 @@ export default function ResumePreview({
                           <Loader2 size={11} className="spin" /> AI version on the way…
                         </span>
                       )}
+                      {repoItem.evidence === 'thin' && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#fbbf24' }} title="No usable README and few descriptive commit messages, so these bullets rest on the repo description and file names only">
+                          <AlertCircle size={12} /> Limited info in this repo: review these bullets, or add a README with a Features section
+                        </span>
+                      )}
                       {repoItem.unverified?.length > 0 && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#fbbf24' }}>
                           <AlertCircle size={12} /> Check before using: {repoItem.unverified.join(', ')} not found in the repo
@@ -657,7 +662,7 @@ export default function ResumePreview({
               {/* Quick Suggestion Chips */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {[
-                  'Emphasize sub-100ms latency & quantitative metrics',
+                  'Emphasize features and integrations from the README',
                   'Highlight testing, security & code coverage',
                   'Focus on microservice backend architecture',
                   'Make concise for a 1-page resume'

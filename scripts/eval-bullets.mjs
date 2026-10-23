@@ -15,7 +15,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { fetchRepo, enrichRepoDetails, knownTechNames } from '../src/services/github.js';
 import { generateTemplateBullets, toAiInput } from '../src/services/resumeEngine.js';
-import { generateWithAI, findUnbackedNumbers } from '../src/services/aiCore.js';
+import { generateWithAI, findUnbackedNumbers, findStyleIssues, evidenceLevel } from '../src/services/aiCore.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -83,7 +83,10 @@ function score(bullets, repo, vocabulary) {
     // Distinctive words shared with the repo's own text: a proxy for "says something specific"
     specificity: [...bulletWords].filter(w => evidenceWords.has(w)).length,
     filler: FILLER.filter(f => mentions(text, f)),
-    words: Math.round(text.split(/\s+/).length / Math.max(bullets.length, 1))
+    words: Math.round(text.split(/\s+/).length / Math.max(bullets.length, 1)),
+    maxWords: Math.max(...bullets.map(b => b.split(/\s+/).length)),
+    // Overlong bullets, "Accomplished", stats used as impact, unproven outcome claims
+    styleIssues: findStyleIssues(bullets, toAiInput(repo))
   };
 }
 
@@ -122,7 +125,7 @@ async function main() {
     }
     // Engines run in parallel per repo; repos run one after another
     const results = await Promise.all(args.engines.map(e => runEngine(e, repo, args.tone, env)));
-    console.log(`── ${fullName}  (README features: ${(repo.readme_features || []).length}, deps: ${repo.detected_deps.length}, commits: ${repo.commits_count ?? '?'})`);
+    console.log(`── ${fullName}  (evidence: ${evidenceLevel(toAiInput(repo))}, features: ${(repo.readme_features || []).length}, commit msgs: ${(repo.commit_subjects || []).length}, deps: ${repo.detected_deps.length}, commits: ${repo.commits_count ?? '?'})`);
     args.engines.forEach((engine, i) => {
       const r = results[i];
       if (r.error) {
@@ -135,24 +138,25 @@ async function main() {
       const flags = [
         s.unbackedNumbers.length ? `invented numbers: ${s.unbackedNumbers.join(', ')}` : '',
         s.unsupportedTech.length ? `unsupported tech: ${s.unsupportedTech.join(', ')}` : '',
-        s.filler.length ? `filler: ${s.filler.join(', ')}` : ''
+        s.filler.length ? `filler: ${s.filler.join(', ')}` : '',
+        s.styleIssues.length ? `style: ${s.styleIssues.join('; ')}` : ''
       ].filter(Boolean).join(' | ');
-      console.log(`   ${pad(engine, 9)} specific=${pad(s.specificity, 3)} words/bullet=${pad(s.words, 3)} ${pad(r.ms + 'ms', 8)} ${flags}`);
+      console.log(`   ${pad(engine, 9)} specific=${pad(s.specificity, 3)} words=${pad(s.words, 3)} max=${pad(s.maxWords, 3)} ${pad(r.ms + 'ms', 8)} ${flags}`);
     });
   }
 
   // Summary per engine
-  console.log('\n══ Summary (averages per repo; lower is better for the last three) ══');
-  console.log(`${pad('engine', 10)}${pad('ok', 6)}${pad('specific', 10)}${pad('words', 7)}${pad('latency', 10)}${pad('inv.nums', 10)}${pad('bad tech', 10)}filler`);
+  console.log('\n══ Summary (averages per repo; lower is better from inv.nums on) ══');
+  console.log(`${pad('engine', 10)}${pad('ok', 6)}${pad('specific', 10)}${pad('words', 7)}${pad('max', 6)}${pad('latency', 10)}${pad('inv.nums', 10)}${pad('bad tech', 10)}${pad('style', 7)}filler`);
   for (const engine of args.engines) {
     const ok = rows.filter(r => r.engine === engine && !r.error);
     const all = rows.filter(r => r.engine === engine);
     const avg = (f) => (ok.length ? (ok.reduce((a, r) => a + f(r), 0) / ok.length) : 0);
     console.log(
       pad(engine, 10) + pad(`${ok.length}/${all.length}`, 6) + pad(avg(r => r.specificity).toFixed(1), 10) +
-      pad(avg(r => r.words).toFixed(0), 7) + pad(`${(avg(r => r.ms) / 1000).toFixed(1)}s`, 10) +
+      pad(avg(r => r.words).toFixed(0), 7) + pad(avg(r => r.maxWords).toFixed(0), 6) + pad(`${(avg(r => r.ms) / 1000).toFixed(1)}s`, 10) +
       pad(avg(r => r.unbackedNumbers.length).toFixed(2), 10) + pad(avg(r => r.unsupportedTech.length).toFixed(2), 10) +
-      avg(r => r.filler.length).toFixed(2)
+      pad(avg(r => r.styleIssues.length).toFixed(2), 7) + avg(r => r.filler.length).toFixed(2)
     );
   }
 

@@ -104,6 +104,34 @@ function bestHeading(lines, pattern) {
 }
 
 /**
+ * Feature phrases from commit subjects, for repos without a usable README:
+ * "feat(docx): add resume upload and project injection" -> "resume upload and project injection"
+ * Only feature-shaped commits count; fixes, refactors and chores don't.
+ */
+export function featuresFromCommits(subjects = []) {
+  const phrases = [];
+  for (const subject of subjects) {
+    const conventional = subject.match(/^feat(?:\([^)]*\))?!?:\s*(.+)$/i);
+    const verbLed = subject.match(/^(?:add(?:ed|s)?|implement(?:ed|s)?|support(?:ed|s)?|introduce(?:d|s)?|build|built|create(?:d|s)?)\s+(.+)$/i);
+    let text = conventional ? conventional[1] : verbLed ? verbLed[1] : null;
+    if (!text) continue;
+    text = text
+      .replace(/^(add(?:ed|s)?|implement(?:ed|s)?|support(?:ed|s)?|introduce(?:d|s)?|create(?:d|s)?)\s+/i, '')
+      .replace(/\s+[-–—]\s+.*$/, '')          // drop "- long explanation"
+      .replace(/\s*\(#\d+\)$/, '')            // PR numbers
+      .replace(/[.;:,]+$/, '')
+      .trim();
+    const words = text.split(/\s+/);
+    if (words.length < 2 || words.length > 8 || /^(the|a|an|some|more|new)\s*$/i.test(words[0])) continue;
+    // Rework of existing code isn't a feature a recruiter can picture
+    if (/\b(overhaul|refactor|cleanup|clean up|rework|improve(ment)?s?|tweak|polish|tests?)\b/i.test(text)) continue;
+    if (!/^[A-Z]{2,}/.test(text)) text = text[0].toLowerCase() + text.slice(1);
+    phrases.push(text);
+  }
+  return [...new Set(phrases)].slice(0, 6);
+}
+
+/**
  * @returns {{ features: string[], stack: string[] }}
  */
 export function extractReadmeFacts(readme) {

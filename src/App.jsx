@@ -91,6 +91,7 @@ export default function App() {
         provider: result.provider,
         model: result.model,
         unverified: result.unverified || [],
+        evidence: result.evidence || 'rich',
         pending
       });
 
@@ -348,7 +349,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Code2 size={16} color="var(--accent-silver)" />
                 <span style={{ fontSize: '0.88rem', fontWeight: '600', fontFamily: 'var(--font-display)', color: '#ffffff' }}>
-                  Sample Project Output — facebook/react
+                  Sample Project Output — imsayanpaul/Reeldex
                 </span>
               </div>
               <span className="badge" style={{ fontSize: '0.72rem' }}>
@@ -360,12 +361,12 @@ export default function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <h4 style={{ fontSize: '0.95rem', fontWeight: '600', color: '#ffffff' }}>
-                    react-concurrent-renderer
+                    Reeldex
                   </h4>
                   
                   {/* Sample GitHub Link Badge */}
                   <a 
-                    href="https://github.com/facebook/react" 
+                    href="https://github.com/imsayanpaul/Reeldex" 
                     target="_blank" 
                     rel="noreferrer"
                     style={{
@@ -388,7 +389,7 @@ export default function App() {
 
                   {/* Sample Live Demo Link Badge */}
                   <a 
-                    href="https://react.dev" 
+                    href="https://reeldex-io.vercel.app" 
                     target="_blank" 
                     rel="noreferrer"
                     style={{
@@ -411,7 +412,7 @@ export default function App() {
                 </div>
 
                 <span className="font-mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                  TypeScript • WebAssembly • Reconciliation Engine
+                  Python • FastAPI • React • PostgreSQL • Whisper
                 </span>
               </div>
 
@@ -432,13 +433,13 @@ export default function App() {
 
               <ul style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                 <li>
-                  <strong style={{ color: '#ffffff' }}>Accomplished 40% reduction in UI paint latency</strong> by architecting a time-slicing concurrent scheduler using requestIdleCallback web APIs.
+                  <strong style={{ color: '#ffffff' }}>Built a searchable second brain for Instagram Reels</strong> that transcribes each DMed reel with Whisper, summarizes the tools and links it mentions, and sorts it by topic.
                 </li>
                 <li>
-                  <strong style={{ color: '#ffffff' }}>Engineered non-blocking reconciliation pipeline</strong> supporting priority-based updates across 10,000+ simultaneous DOM node mutations.
+                  <strong style={{ color: '#ffffff' }}>Designed a FastAPI ingestion pipeline</strong> that receives Instagram DMs via webhook and stores transcripts and summaries in PostgreSQL through SQLAlchemy.
                 </li>
                 <li>
-                  <strong style={{ color: '#ffffff' }}>Optimized memory allocation profile by 32%</strong> through custom Fiber tree pooling and generational garbage collection hooks.
+                  <strong style={{ color: '#ffffff' }}>Developed a React interface and "Ask Dex" chat</strong> that answers questions across saved reels with links back to the source videos.
                 </li>
               </ul>
             </div>
@@ -455,7 +456,7 @@ export default function App() {
               <div>
                 <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '3px', color: '#ffffff' }}>Google XYZ Formula</h4>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
-                  Quantifies achievements: "Accomplished [X] as measured by [Y], by doing [Z]" for technical resume scanners.
+                  Shapes each bullet as what you built, its concrete scope, and how you built it, using only facts from the repo.
                 </p>
               </div>
             </div>

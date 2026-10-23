@@ -5,14 +5,14 @@
  * (a visitor's own Gemini key, or the deployment's Groq/Gemini via /api/generate)
  * replace them when ready.
  */
-import { generateWithAI } from './aiCore.js';
+import { generateWithAI, evidenceLevel, MIN_STARS_TO_CITE, MIN_COMMITS_TO_CITE } from './aiCore.js';
 
 /**
  * Instant, offline bullets built only from repo evidence (README features,
  * detected stack, infrastructure files, real commit count).
  */
 export function generateTemplateBullets(repo, tone = 'xyz', jdKeywords = []) {
-  return { bullets: generateHeuristicBullets(repo, tone, jdKeywords), source: 'heuristic', provider: null, model: null, unverified: [], techStack: repo.detected_deps || [] };
+  return { bullets: generateHeuristicBullets(repo, tone, jdKeywords), source: 'heuristic', provider: null, model: null, unverified: [], techStack: repo.detected_deps || [], evidence: evidenceLevel(toAiInput(repo)) };
 }
 
 /**
@@ -73,7 +73,9 @@ export function toAiInput(repo) {
     stargazers_count: repo.stargazers_count || 0,
     forks_count: repo.forks_count || 0,
     commits_count: repo.commits_count ?? null,
-    readmeText: (repo.readmeText || '').slice(0, 2000)
+    readmeText: (repo.readmeText || '').slice(0, 2000),
+    commit_subjects: repo.commit_subjects || [],
+    top_level_files: repo.top_level_files || []
   };
 }
 
@@ -95,9 +97,10 @@ async function generateViaServer(input, { tone, jdKeywords, customInstruction })
 function generateHeuristicBullets(repo, tone, jdKeywords = []) {
   const name = formatRepoName(repo.name);
   const lang = repo.language && repo.language !== 'Codebase' ? repo.language : 'modern tooling';
-  const techStack = repo.detected_deps.length > 0 ? repo.detected_deps.slice(0, 5).join(', ') : lang;
+  // Four names keep the lead bullet within about 30 words; the full stack shows in the title line
+  const techStack = repo.detected_deps.length > 0 ? repo.detected_deps.slice(0, 4).join(', ') : lang;
   const arch = getArchitectureDetail(repo, lang);
-  const starsText = repo.stargazers_count > 10 ? `, garnering ${repo.stargazers_count}+ stars on GitHub` : '';
+  const starsText = repo.stargazers_count >= MIN_STARS_TO_CITE ? `, earning ${repo.stargazers_count} GitHub stars` : '';
   const desc = (repo.description || '').toLowerCase();
   
   // Extract what the project actually does from description
@@ -119,13 +122,25 @@ function generateHeuristicBullets(repo, tone, jdKeywords = []) {
   // commit count, stars); nothing claims latency, scale or quality we can't see
   // README feature lists are the most specific true content we have
   const readmeFeatures = repo.readme_features || [];
-  const featureClause = readmeFeatures.length >= 2
-    ? `, featuring ${joinList(readmeFeatures.slice(0, 3))}`
+  // Fit features into about 12 words so the lead bullet stays near 30;
+  // the ones that don't fit go to the second bullet
+  const leadFeatures = [];
+  let featureWords = 0;
+  for (const f of readmeFeatures) {
+    const n = f.split(/\s+/).length;
+    if (leadFeatures.length >= 3 || (leadFeatures.length >= 2 && featureWords + n > 12)) break;
+    if (n > 7) continue;
+    leadFeatures.push(f);
+    featureWords += n;
+  }
+  const featureClause = leadFeatures.length >= 2
+    ? `, featuring ${joinList(leadFeatures)}`
     : (featureHighlights ? ` that ${featureHighlights}` : '');
-  const extraFeatures = readmeFeatures.slice(3, 6);
+  const extraFeatures = readmeFeatures.filter(f => !leadFeatures.includes(f) && f.split(/\s+/).length <= 7).slice(0, 2);
   const baseImpl = getImplementationDetail(repo);
   const impl = baseImpl || (extraFeatures.length > 0 ? `delivering ${joinList(extraFeatures)}` : '');
-  const closing = getClosingBullet(repo, verbs);
+  // Cite at most one repo statistic: stars in the lead bullet, or commits in the last
+  const closing = getClosingBullet(repo, verbs, { citeCommits: !starsText });
 
   if (tone === 'xyz') {
     return [
@@ -169,10 +184,10 @@ function pickVerbSet(repoName) {
     { lead: 'Architected and deployed', mid: 'Engineered', tail: 'Implemented' },
     { lead: 'Designed and built', mid: 'Developed', tail: 'Integrated' },
     { lead: 'Built and shipped', mid: 'Optimized', tail: 'Established' },
-    { lead: 'Spearheaded development of', mid: 'Constructed', tail: 'Deployed' },
+    { lead: 'Developed', mid: 'Constructed', tail: 'Deployed' },
     { lead: 'Created and launched', mid: 'Streamlined', tail: 'Configured' },
     { lead: 'Developed and delivered', mid: 'Programmed', tail: 'Orchestrated' },
-    { lead: 'Pioneered and released', mid: 'Crafted', tail: 'Instituted' },
+    { lead: 'Built and released', mid: 'Crafted', tail: 'Instituted' },
   ];
   
   // Simple deterministic hash from repo name
@@ -195,9 +210,9 @@ function extractProjectPurpose(repo) {
     // Generate from name and topics
     const topics = (repo.topics || []).slice(0, 3).map(t => t.replace(/-/g, ' ')).join(', ');
     if (topics) {
-      return `a ${repo.language || 'full-stack'} application focused on ${topics}`;
+      return `a ${projectLanguage(repo)} project focused on ${topics}`;
     }
-    return `a ${repo.language || 'full-stack'} application with modular architecture and responsive user interface`;
+    return `a ${projectLanguage(repo)} project`;
   }
   
   // Clean the description
@@ -210,9 +225,10 @@ function extractProjectPurpose(repo) {
   // Strip repo name prefix patterns like "Appliqa: ...", "Appliqa - ...", "Appliqa — ..."
   const repoName = repo.name.toLowerCase().replace(/[-_]/g, '');
   const prefixPatterns = [
-    new RegExp(`^${repo.name}\\s*[:–—-]\\s*`, 'i'),
-    new RegExp(`^${repoName}\\s*[:–—-]\\s*`, 'i'),
-    new RegExp(`^${formatRepoName(repo.name)}\\s*[:–—-]\\s*`, 'i'),
+    // "Typer: ...", "Typer - ...", "Typer, build great CLIs"
+    new RegExp(`^${repo.name}\\s*[:–—,-]\\s*`, 'i'),
+    new RegExp(`^${repoName}\\s*[:–—,-]\\s*`, 'i'),
+    new RegExp(`^${formatRepoName(repo.name)}\\s*[:–—,-]\\s*`, 'i'),
   ];
   for (const pattern of prefixPatterns) {
     cleaned = cleaned.replace(pattern, '');
@@ -234,15 +250,17 @@ function extractProjectPurpose(repo) {
   cleaned = cleaned.replace(/\.\s*$/, '');
   
   if (!cleaned) {
-    return `a ${repo.language || 'full-stack'} application with modular architecture`;
+    return `a ${projectLanguage(repo)} project`;
   }
   
   // Take the first sentence as the core purpose; the rest is usually detail
   let purpose = cleaned;
   const firstSentence = purpose.split(/[.!?;](?:\s|$)/)[0].trim();
-  if (firstSentence.length > 20 || purpose.length > 100) {
+  if (firstSentence.split(/\s+/).length >= 3 || purpose.length > 100) {
     purpose = firstSentence || purpose;
   }
+
+  purpose = shortenPurpose(purpose);
 
   // Lowercase first letter for embedding in sentence, but keep acronyms like "AI" or "CLI"
   if (!/^[A-Z]{2,}/.test(purpose)) {
@@ -252,7 +270,8 @@ function extractProjectPurpose(repo) {
   // Descriptions written as instructions ("Copy a list once...", "Tweak React components...")
   // read as "a tool to <verb>...", not "a copy a list once..."
   const firstWord = purpose.split(/[\s,]/)[0].toLowerCase();
-  if (IMPERATIVE_VERBS.has(firstWord)) {
+  // Projects named after their verb describe themselves that way too ("Slugify a string")
+  if (IMPERATIVE_VERBS.has(firstWord) || firstWord === normalize(repo.name)) {
     return `a tool to ${purpose}`;
   }
 
@@ -260,6 +279,26 @@ function extractProjectPurpose(repo) {
   const article = /^[aeiou]/i.test(purpose) || /^[AEFHILMNORSX][A-Z]/.test(purpose) ? 'an' : 'a';
 
   return `${article} ${purpose}`;
+}
+
+/**
+ * Keep a description's core clause so the lead bullet stays near 30 words:
+ * "a Chrome extension to anchor your exact reading position on any webpage
+ * including dynamic panels like ChatGPT..." -> "a Chrome extension to anchor exact
+ * reading position on any webpage". Also drops second person ("your"), which
+ * doesn't belong on a resume.
+ */
+function shortenPurpose(purpose) {
+  let p = purpose.replace(/\byour\s+/gi, '').replace(/\byou\s+/gi, 'users ');
+  const cut = p.match(/^(.+?)\s(?:featuring|features|including|such as|like|ready to|so (?:that|you)|and (?:then )?return|which|that lets|letting|with support for)\b/i);
+  if (cut && cut[1].split(/\s+/).length >= 3) p = cut[1].replace(/[,;:\s]+$/, '');
+  const words = p.split(/\s+/);
+  if (words.length > 16) {
+    p = words.slice(0, 16).join(' ');
+    // Don't end on a dangling connector or comma
+    p = p.replace(/[,;]?\s+(and|or|to|of|for|with|in|on|the|a|an|by|from)$/i, '').replace(/[,;]$/, '');
+  }
+  return p.trim();
 }
 
 const IMPERATIVE_VERBS = new Set([
@@ -306,6 +345,11 @@ function joinList(items) {
   if (items.length <= 1) return items.join('');
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+// "Codebase" is the placeholder for repos GitHub couldn't classify
+function projectLanguage(repo) {
+  return repo.language && repo.language !== 'Codebase' ? repo.language : 'software';
 }
 
 function withArticle(word) {
@@ -407,9 +451,9 @@ function getInfraDetail(repo) {
  * Third bullet: real infrastructure and the real commit count, or a modest
  * statement about structure when the repo shows neither
  */
-function getClosingBullet(repo, verbs) {
+function getClosingBullet(repo, verbs, { citeCommits = true } = {}) {
   const infra = getInfraDetail(repo);
-  const commits = typeof repo.commits_count === 'number' && repo.commits_count >= 10 ? repo.commits_count : null;
+  const commits = citeCommits && typeof repo.commits_count === 'number' && repo.commits_count >= MIN_COMMITS_TO_CITE ? repo.commits_count : null;
   if (infra) {
     return `${verbs.tail} ${infra}${commits ? `, shipping the project across ${commits} commits` : ''}.`;
   }

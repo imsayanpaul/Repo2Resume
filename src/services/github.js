@@ -2,7 +2,7 @@
  * GitHub API Service
  * Handles fetching repositories, language metrics, dependencies, and demo mock profiles.
  */
-import { extractReadmeFacts } from './readmeFacts.js';
+import { extractReadmeFacts, featuresFromCommits } from './readmeFacts.js';
 
 /**
  * Sanitize and extract clean username from raw input (URLs, @handles, etc.)
@@ -118,8 +118,8 @@ function ghFetch(path, personalToken = '') {
 }
 
 // Enrichment results keyed by repo + last update, so revisits cost no API calls
-// v2: entries also carry parsed README features
-const CACHE_PREFIX = 'r2r:enrich:v2:';
+// v3: entries also carry commit subjects and top-level files
+const CACHE_PREFIX = 'r2r:enrich:v3:';
 function readCache(key) {
   try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; }
 }
@@ -304,13 +304,25 @@ export async function enrichRepoDetails(repo, personalToken = '') {
     if (texts.some(Boolean)) repo.weak_deps = [];
   }
 
+  // Parsed from the full README before it's trimmed for the prompt
+  let readmeFeatures = extractReadmeFacts(readmeText).features;
+
+  // Missing or thin README: commit messages are the next-best evidence (1 API call)
+  const thinReadme = (readmeText || '').replace(/\s+/g, ' ').trim().length < 400;
+  const commitSubjects = thinReadme ? await fetchCommitSubjects(api, repo.owner, personalToken) : [];
+  if (readmeFeatures.length < 2) {
+    const fromCommits = featuresFromCommits(commitSubjects);
+    if (fromCommits.length >= 2) readmeFeatures = fromCommits;
+  }
+
   const enrichment = {
     manifestDeps: Array.from(manifestDeps),
     weakDeps: repo.weak_deps || [],
     commits: typeof commits === 'number' ? commits : null,
     readmeText: (readmeText || '').slice(0, 2000),
-    // Parsed from the full README before it's trimmed for the prompt
-    readmeFeatures: extractReadmeFacts(readmeText).features
+    readmeFeatures,
+    commitSubjects,
+    files: Array.isArray(rootFiles) ? meaningfulFiles(rootFiles) : []
   };
   applyEnrichment(repo, enrichment);
 
@@ -335,7 +347,9 @@ async function fetchRawFile(fullName, path) {
   return '';
 }
 
-function applyEnrichment(repo, { manifestDeps, weakDeps, commits, readmeText, readmeFeatures = [] }) {
+function applyEnrichment(repo, { manifestDeps, weakDeps, commits, readmeText, readmeFeatures = [], commitSubjects = [], files = [] }) {
+  repo.commit_subjects = commitSubjects;
+  repo.top_level_files = files;
   const deps = new Set([...(repo.strong_deps || []), ...weakDeps, ...manifestDeps]);
   repo.detected_deps = Array.from(deps);
   repo.manifest_deps = manifestDeps;
@@ -359,6 +373,37 @@ async function fetchJson(path, personalToken) {
 /**
  * Count the owner's commits from the Link header of a one-per-page listing.
  */
+/**
+ * The owner's recent commit subjects: the best feature evidence a repo has
+ * when its README is missing or thin. Merge commits, version bumps and
+ * README/typo housekeeping are dropped.
+ */
+async function fetchCommitSubjects(api, owner, personalToken) {
+  try {
+    const authorParam = owner ? `&author=${owner}` : '';
+    const res = await ghFetch(`${api}/commits?per_page=50${authorParam}`, personalToken);
+    if (!res.ok) return [];
+    const commits = await res.json();
+    if (!Array.isArray(commits)) return [];
+    const subjects = commits
+      .map(c => (c.commit?.message || '').split('\n')[0].trim())
+      .filter(s => s.length > 8 && s.length < 140)
+      .filter(s => !/^(merge|revert|bump|wip\b|initial commit|first commit|update readme|readme|typo|fix typo|version|v?\d+\.\d+|chore\(release\))/i.test(s))
+      .filter(s => !/^(update|create|delete|add|rename)\s+[\w./-]+\.(md|txt|png|jpg|gif|json|lock|ico)$/i.test(s));
+    return [...new Set(subjects)].slice(0, 25);
+  } catch {
+    return [];
+  }
+}
+
+// Top-level names worth telling the AI about (skip housekeeping files)
+function meaningfulFiles(rootFiles) {
+  return rootFiles
+    .map(f => (f.type === 'dir' ? `${f.name}/` : f.name))
+    .filter(n => !/^(\.(?!github)|license|readme|changelog|code_of_conduct|contributing|package-lock|yarn\.lock|pnpm-lock|bun\.lock)/i.test(n))
+    .slice(0, 30);
+}
+
 async function fetchCommitCount(api, owner, personalToken) {
   try {
     const authorParam = owner ? `&author=${owner}` : '';

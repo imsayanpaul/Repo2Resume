@@ -49,7 +49,9 @@ export async function handleGenerate(body, env) {
     stargazers_count: num(repo.stargazers_count) ?? 0,
     forks_count: num(repo.forks_count) ?? 0,
     commits_count: num(repo.commits_count),
-    readmeText: str(repo.readmeText, 2000)
+    readmeText: str(repo.readmeText, 2000),
+    commit_subjects: strList(repo.commit_subjects, 25, 140),
+    top_level_files: strList(repo.top_level_files, 30, 80)
   };
 
   try {
@@ -72,7 +74,8 @@ const GITHUB_PATHS = [
   /^\/users\/[A-Za-z0-9-]{1,39}$/,
   /^\/users\/[A-Za-z0-9-]{1,39}\/repos\?sort=updated&per_page=100&page=[1-5]$/,
   /^\/repos\/[\w.-]{1,100}\/[\w.-]{1,100}\/contents\/[\w.\-/]{0,200}$/,
-  /^\/repos\/[\w.-]{1,100}\/[\w.-]{1,100}\/commits\?per_page=1(&author=[A-Za-z0-9-]{1,39})?$/
+  /^\/repos\/[\w.-]{1,100}\/[\w.-]{1,100}\/commits\?per_page=(1|50)(&author=[A-Za-z0-9-]{1,39})?$/,
+  /^\/repos\/[\w.-]{1,100}\/[\w.-]{1,100}$/
 ];
 
 /**
