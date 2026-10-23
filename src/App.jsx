@@ -5,9 +5,10 @@ import ResumePreview from './components/ResumePreview';
 import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import Footer from './components/Footer';
+import RepoTrace from './components/RepoTrace';
 import { fetchUserRepos, enrichRepoDetails, setServerGithub } from './services/github';
 import { generateTemplateBullets, generateAiBullets } from './services/resumeEngine';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 // Storage can throw in private windows or with site data blocked
 function readStorage(key) {
@@ -265,7 +266,6 @@ export default function App() {
         onGoHome={handleGoHome}
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeUsername={userData?.username}
-        hasApiKey={aiEnabled}
       />
 
       {errorMsg && (
@@ -282,22 +282,24 @@ export default function App() {
         <>
           <main className="landing">
             <section className="hero">
-              <div>
-                <p className="eyebrow"><span className="dot dot-on" aria-hidden="true" /> for the Projects section of a résumé</p>
-                <h1>Your GitHub repos, written up as <em>résumé bullets</em> you can defend.</h1>
-                <p className="hero-sub">
-                  Repo2Resume reads each project's README, dependency files and commit history, then drafts bullets that say what you actually built. Every number is checked against the repo.
+              <div className="hero-main">
+                <h1 className="intro">I kept forgetting what went into my old projects, so I made&nbsp;this.</h1>
+              </div>
+
+              <div className="hero-side">
+                <p className="intro-sub">
+                  Type a GitHub username. Repo2Resume reads each repo's README, dependency files and commit history, and writes résumé bullets that include the things you forgot you built.
                 </p>
 
                 <form
-                  className="search"
+                  className="prompt"
                   onSubmit={(e) => { e.preventDefault(); handleSearchUser(searchInput); }}
                 >
-                  <label className="search-input">
-                    <span className="search-prefix">github.com/</span>
+                  <label className="prompt-field">
+                    <span className="prompt-prefix">github.com/</span>
                     <input
                       type="text"
-                      placeholder="username"
+                      placeholder="your-username"
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
                       autoComplete="off"
@@ -306,12 +308,12 @@ export default function App() {
                     />
                   </label>
                   <button type="submit" className="btn btn-primary" disabled={loading}>
-                    {loading ? <><span className="blocks" aria-hidden="true"><i /><i /><i /><i /></span> Reading repos</> : 'Load repositories'}
+                    {loading ? <><span className="blocks" aria-hidden="true"><i /><i /><i /><i /></span> reading</> : <>Read my repos <span aria-hidden="true">↵</span></>}
                   </button>
                 </form>
 
                 <div className="try-row">
-                  <span>Or try</span>
+                  <span>or try</span>
                   {sampleProfiles.map(name => (
                     <button key={name} type="button" onClick={() => handleSearchUser(name)}>
                       {name}
@@ -319,70 +321,25 @@ export default function App() {
                   ))}
                 </div>
               </div>
-
-              {/* A real output next to the sources it was built from */}
-              <div className="demo" aria-label="Example output for the Reeldex repository">
-                <div className="win">
-                  <div className="win-bar">
-                    <span className="win-title">RESUME.DOC</span>
-                    <span className="win-meta">reeldex</span>
-                    <span className="win-btns" aria-hidden="true"><span /><span /></span>
-                  </div>
-                  <div className="page resume" style={{ border: 0 }}>
-                    <div className="resume-section">Projects</div>
-                    <div className="resume-entry">
-                      <div className="resume-head">
-                        <span className="resume-title">Reeldex</span>
-                        <span className="resume-links"><a href="https://github.com/imsayanpaul/Reeldex" target="_blank" rel="noreferrer">GitHub</a></span>
-                        <span className="resume-stack">Python, FastAPI, React, PostgreSQL</span>
-                      </div>
-                      <ul>
-                        <li>Built a searchable second brain for Instagram Reels that transcribes each DMed reel with Whisper and sorts it by topic.</li>
-                        <li>Designed a FastAPI pipeline that receives Instagram DMs via webhook and stores transcripts in PostgreSQL through SQLAlchemy.</li>
-                        <li>Shipped "Ask Dex", a chat that answers questions across saved reels, over 209 commits.</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="win">
-                  <div className="win-bar">
-                    <span className="win-title">SOURCES.LOG</span>
-                  </div>
-                  <ul className="log">
-                    <li><span className="ok">ok</span><span>README.md <span className="k">→ features, purpose</span></span><span className="k">12 KB</span></li>
-                    <li><span className="ok">ok</span><span>requirements.txt <span className="k">→ FastAPI, SQLAlchemy</span></span><span className="k">deps</span></li>
-                    <li><span className="ok">ok</span><span>package.json <span className="k">→ React, Vite</span></span><span className="k">deps</span></li>
-                    <li><span className="ok">ok</span><span>git log <span className="k">→ 209 commits by author</span></span><span className="k">count</span></li>
-                    <li><span className="ok">ok</span><span>numbers checked <span className="k">→ 0 invented</span></span><span className="k">pass</span></li>
-                  </ul>
-                </div>
-              </div>
             </section>
 
-            <section className="steps" aria-label="How it works">
-              <div className="step">
-                <p className="step-num">01</p>
-                <h3>Reads the repo</h3>
-                <p>README feature lists, package.json and requirements.txt, Dockerfiles, CI workflows and your own commit messages.</p>
-              </div>
-              <div className="step">
-                <p className="step-num">02</p>
-                <h3>Drafts in seconds</h3>
-                <p>Plain-English bullets appear immediately; AI-written versions replace them about a second later. Pick XYZ, STAR, technical or ATS style.</p>
-              </div>
-              <div className="step">
-                <p className="step-num">03</p>
-                <h3>Checks every claim</h3>
-                <p>Unbacked numbers and tech get rewritten or flagged, and thin repos are marked for review. Export to Word, LaTeX, Markdown or JSON.</p>
+            <section className="band" id="example" aria-labelledby="example-title">
+              <div className="band-inner">
+                <div className="band-head">
+                  <h2 id="example-title">Where every word comes from</h2>
+                  <p>
+                    Ask me about Reeldex and I'd say <q>an app that saves reels. Python, React, some AI.</q> The repo remembers the rest. Hover a file to see what it put on the page.
+                  </p>
+                </div>
+                <RepoTrace />
+                <p className="band-foot">
+                  Works with any public GitHub account, no sign-up · numbers are checked against the repo · copy to Word or Docs, drop into your .docx, or export LaTeX, Markdown and JSON
+                </p>
               </div>
             </section>
           </main>
 
-          <Footer
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenJdModal={() => setIsJdOpen(true)}
-          />
+          <Footer onOpenSettings={() => setIsSettingsOpen(true)} />
         </>
       ) : (
         <main className={`workspace ${errorMsg ? 'with-notice' : ''}`}>
