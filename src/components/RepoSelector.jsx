@@ -96,7 +96,7 @@ export default function RepoSelector({
           <div>
             <h2 style={{ fontSize: '0.98rem', fontWeight: '700', fontFamily: 'var(--font-display)', color: '#ffffff' }}>{user.name}</h2>
             <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }} className="font-mono">
-              @{user.username} • {user.public_repos || repos.length} Repositories
+              @{user.username} • {repos.length} {repos.length === 1 ? 'Project' : 'Projects'}
             </p>
           </div>
         </div>

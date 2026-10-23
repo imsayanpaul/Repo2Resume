@@ -103,18 +103,32 @@ Open `http://localhost:3000` in your browser.
 
 ## 🔑 Environment Variables (Optional)
 
+Keys stay on the server. The `/api` functions (Vercel serverless functions in production, Vite middleware in `npm run dev`) read them, and the browser only ever talks to `/api/gemini` and `/api/github`.
+
 Create a `.env.local` file in the project root:
 
 ```env
-# Optional: default Gemini API key for local development
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
+# Gemini key for AI bullets when a visitor hasn't added their own
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Optional: GitHub token (no scopes needed) for a shared 5,000 requests/hour limit
+GITHUB_TOKEN=
 ```
 
-> ⚠️ **Never set `VITE_GEMINI_API_KEY` on a public deployment.** Every `VITE_` variable is compiled into the JavaScript bundle, so anyone can read the key from your site. Google detects keys exposed this way and revokes them as leaked. For public deployments, leave it unset and have each user add their own key in **Settings** (stored only in their browser).
+On **Vercel**, add the same two variables under *Project Settings → Environment Variables* and redeploy.
+
+> ⚠️ **Do not use `VITE_GEMINI_API_KEY`.** Any `VITE_` variable is compiled into the JavaScript bundle, where anyone can read it, and Google revokes keys exposed that way. If an older setup has it, delete it from your environment.
 
 *Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).*
 
-A GitHub Personal Access Token can be added in **Settings** to raise the GitHub API limit from 60 to 5,000 requests/hour. Without one, generating bullets for many repositories can hit the limit, since each selected repo costs a few API calls (README, file listing, manifests, commit count).
+Visitors can still add their own Gemini key or GitHub token in **Settings** (kept in their browser only); their own key takes priority over the server's.
+
+**How the app stays within limits:**
+- READMEs and manifest files are read from `raw.githubusercontent.com`, which doesn't count against the GitHub API limit.
+- Each selected repo costs 2–3 API calls (file listing, commit count, workflows), and the results are cached in the browser until the repo changes.
+- Without any GitHub token, the API allows 60 requests/hour per visitor, enough for about 15–20 repos.
+
+**Honest output:** every number Gemini writes is checked against the README, description and real repo stats (commits, stars). Bullets with an unbacked number are regenerated once, and any number that survives is flagged in the preview with "Check before using".
 
 ---
 

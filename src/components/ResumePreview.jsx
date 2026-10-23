@@ -528,6 +528,18 @@ export default function ResumePreview({
                       </span>
                     </div>
 
+                    {/* Where these bullets came from, and any figures to double-check */}
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <span className="badge" style={{ fontSize: '0.68rem' }} title={repoItem.source === 'gemini' ? 'Written by Gemini from the README, description and detected stack' : 'Built by the offline template engine from detected stack and repo stats'}>
+                        {repoItem.source === 'gemini' ? <><Sparkles size={10} /> AI · {repoItem.model}</> : 'Template'}
+                      </span>
+                      {repoItem.unverified?.length > 0 && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#fbbf24' }}>
+                          <AlertCircle size={12} /> Check before using: {repoItem.unverified.join(', ')} not found in the repo
+                        </span>
+                      )}
+                    </div>
+
                     {/* Per-Project Link Controls Toolbar */}
                     <div className="project-links-bar">
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: '600' }}>Links:</span>

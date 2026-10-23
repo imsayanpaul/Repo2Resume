@@ -98,6 +98,33 @@ function buildHeaders(personalToken, accept = 'application/vnd.github+json') {
   return headers;
 }
 
+// Set from /api/config: true when the deployment has its own GITHUB_TOKEN
+let useServerGithub = false;
+export function setServerGithub(enabled) {
+  useServerGithub = Boolean(enabled);
+}
+
+/**
+ * GET a GitHub API path. A visitor's own token goes straight to GitHub;
+ * otherwise use the deployment's /api/github proxy when it has a token
+ * (5,000/hour shared) and fall back to unauthenticated calls (60/hour per IP).
+ */
+function ghFetch(path, personalToken = '') {
+  if (!personalToken && useServerGithub) {
+    return fetch(`/api/github?path=${encodeURIComponent(path)}`);
+  }
+  return fetch(`https://api.github.com${path}`, { headers: buildHeaders(personalToken) });
+}
+
+// Enrichment results keyed by repo + last update, so revisits cost no API calls
+const CACHE_PREFIX = 'r2r:enrich:v1:';
+function readCache(key) {
+  try { return JSON.parse(localStorage.getItem(CACHE_PREFIX + key) || 'null'); } catch { return null; }
+}
+function writeCache(key, value) {
+  try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(value)); } catch { /* storage full or blocked */ }
+}
+
 /**
  * Turn a failed GitHub response into a user-facing error.
  * GitHub signals rate limiting with 403 or 429 and x-ratelimit-remaining: 0.
@@ -118,14 +145,12 @@ function githubError(res, fallbackMsg) {
  */
 export async function fetchUserRepos(rawInput, personalToken = '') {
   const username = extractCleanUsername(rawInput);
-  if (!username) {
+  if (!username || !/^[A-Za-z0-9-]{1,39}$/.test(username)) {
     throw new Error('Please enter a valid GitHub username or profile URL.');
   }
 
-  const headers = buildHeaders(personalToken);
-
   // 1. Fetch User Profile
-  const userRes = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, { headers });
+  const userRes = await ghFetch(`/users/${username}`, personalToken);
   if (!userRes.ok) {
     if (userRes.status === 404) {
       throw new Error(`GitHub user "${username}" not found.`);
@@ -137,7 +162,7 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
   // 2. Fetch Repositories (paginated, up to 500)
   const rawRepos = [];
   for (let page = 1; page <= 5; page++) {
-    const repoRes = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100&page=${page}`, { headers });
+    const repoRes = await ghFetch(`/users/${username}/repos?sort=updated&per_page=100&page=${page}`, personalToken);
     if (!repoRes.ok) {
       throw githubError(repoRes, `Failed to fetch repositories for "${username}"`);
     }
@@ -150,7 +175,8 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
   // profile README, so neither belongs in a resume's Projects section
   const repos = rawRepos
     .filter(r => !r.fork && r.name.toLowerCase() !== userProfile.login.toLowerCase())
-    .map(r => ({
+    .map(r => ({ r, deps: extractFallbackDepsFromRepo(r) }))
+    .map(({ r, deps }) => ({
       id: r.id,
       name: r.name,
       full_name: r.full_name,
@@ -163,7 +189,9 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
       topics: r.topics || [],
       updated_at: r.updated_at,
       languages_breakdown: r.language ? { [r.language]: 100 } : {},
-      detected_deps: extractFallbackDepsFromRepo(r),
+      detected_deps: [...deps.strong, ...deps.weak],
+      strong_deps: deps.strong,
+      weak_deps: deps.weak,
       commits_count: null, // Real count is filled in by enrichRepoDetails for selected repos
       enriched: false
     }));
@@ -183,79 +211,128 @@ export async function fetchUserRepos(rawInput, personalToken = '') {
 /**
  * Programmatically fetch raw README.md content for a repository
  */
-export async function fetchRepoReadme(fullName, personalToken = '') {
+export async function fetchRepoReadme(fullName) {
   if (!fullName) return '';
-  const text = await fetchRaw(`https://api.github.com/repos/${fullName}/readme`, personalToken);
+  const text = await fetchRawFile(fullName, 'README.md');
   return text.slice(0, 2000); // Excerpt for prompt
 }
 
 /**
- * Fetch real detail for a selected repository: dependencies from root
- * manifests and the owner's commit count. Costs 2-4 API calls, so it only
- * runs for repos the user generates bullets for.
+ * Fetch real detail for a selected repository: README excerpt, dependencies
+ * from root manifests, and the owner's commit count. Costs 3-6 API calls, so it
+ * only runs for repos the user generates bullets for, and results are cached
+ * until the repo is next updated.
  * Mutates and returns the repo. Each lookup is best-effort.
  */
 export async function enrichRepoDetails(repo, personalToken = '') {
   if (!repo?.full_name || repo.enriched) return repo;
-  const headers = buildHeaders(personalToken);
-  const api = `https://api.github.com/repos/${repo.full_name}`;
+  const cacheKey = `${repo.full_name}@${repo.updated_at}`;
+  const cached = readCache(cacheKey);
+  if (cached) {
+    applyEnrichment(repo, cached);
+    return repo;
+  }
 
+  const api = `/repos/${repo.full_name}`;
   const [rootFiles, commits] = await Promise.all([
-    fetchJson(`${api}/contents/`, headers),
-    fetchCommitCount(api, repo.owner, headers)
+    fetchJson(`${api}/contents/`, personalToken),
+    fetchCommitCount(api, repo.owner, personalToken)
   ]);
 
-  const deps = new Set(repo.detected_deps || []);
+  const manifestDeps = new Set();
+  let readmeText = '';
+  const MANIFESTS = ['package.json', 'requirements.txt', 'pyproject.toml', 'go.mod', 'cargo.toml'];
+
   if (Array.isArray(rootFiles)) {
     const byName = new Map(rootFiles.map(f => [f.name.toLowerCase(), f.name]));
-    if (['dockerfile', 'docker-compose.yml', 'docker-compose.yaml', 'compose.yaml'].some(n => byName.has(n))) deps.add('Docker');
-    if (byName.has('tsconfig.json')) deps.add('TypeScript');
+    if (['dockerfile', 'docker-compose.yml', 'docker-compose.yaml', 'compose.yaml'].some(n => byName.has(n))) manifestDeps.add('Docker');
+    if (byName.has('tsconfig.json')) manifestDeps.add('TypeScript');
     if (byName.has('.github')) {
-      const workflows = await fetchJson(`${api}/contents/.github/workflows`, headers);
-      if (Array.isArray(workflows) && workflows.length > 0) deps.add('GitHub Actions');
+      const workflows = await fetchJson(`${api}/contents/.github/workflows`, personalToken);
+      if (Array.isArray(workflows) && workflows.length > 0) manifestDeps.add('GitHub Actions');
     }
 
-    const manifests = ['package.json', 'requirements.txt', 'pyproject.toml', 'go.mod', 'cargo.toml'].filter(n => byName.has(n));
-    const texts = await Promise.all(manifests.map(n => fetchRaw(`${api}/contents/${byName.get(n)}`, personalToken)));
+    const readmeName = rootFiles.map(f => f.name).find(n => /^readme(\.(md|markdown|rst|txt))?$/i.test(n));
+    const manifests = MANIFESTS.filter(n => byName.has(n));
+    const [readme, ...texts] = await Promise.all([
+      readmeName ? fetchRawFile(repo.full_name, readmeName) : Promise.resolve(''),
+      ...manifests.map(n => fetchRawFile(repo.full_name, byName.get(n)))
+    ]);
+    readmeText = readme;
     manifests.forEach((file, i) => {
-      if (texts[i]) detectDepsFromManifest(file, texts[i]).forEach(d => deps.add(d));
+      if (texts[i]) detectDepsFromManifest(file, texts[i]).forEach(d => manifestDeps.add(d));
     });
+    // With a manifest in hand, description-only guesses that it doesn't confirm are dropped
+    if (manifests.length > 0) repo.weak_deps = [];
+  } else {
+    // API listing failed (usually the rate limit). raw.githubusercontent.com isn't
+    // API-limited, so still try the common file names directly.
+    const [readme, ...texts] = await Promise.all([
+      fetchRawFile(repo.full_name, 'README.md'),
+      ...MANIFESTS.slice(0, 2).map(n => fetchRawFile(repo.full_name, n))
+    ]);
+    readmeText = readme;
+    MANIFESTS.slice(0, 2).forEach((file, i) => {
+      if (texts[i]) detectDepsFromManifest(file, texts[i]).forEach(d => manifestDeps.add(d));
+    });
+    if (texts.some(Boolean)) repo.weak_deps = [];
   }
-  repo.detected_deps = Array.from(deps);
 
-  if (typeof commits === 'number') repo.commits_count = commits;
-  // A rate-limited or failed pass is retried on the next generate
+  const enrichment = {
+    manifestDeps: Array.from(manifestDeps),
+    weakDeps: repo.weak_deps || [],
+    commits: typeof commits === 'number' ? commits : null,
+    readmeText: (readmeText || '').slice(0, 2000)
+  };
+  applyEnrichment(repo, enrichment);
+
+  // A rate-limited or failed pass is retried on the next generate instead of cached
   repo.enriched = Array.isArray(rootFiles);
+  repo.enrichIncomplete = !repo.enriched;
+  if (repo.enriched) writeCache(cacheKey, enrichment);
   return repo;
 }
 
-async function fetchJson(url, headers) {
+/**
+ * Read a file from raw.githubusercontent.com: public repos only, CORS-enabled,
+ * and not counted against the GitHub API rate limit.
+ */
+async function fetchRawFile(fullName, path) {
   try {
-    const res = await fetch(url, { headers });
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.warn(`GitHub request failed: ${url}`, err);
-  }
-  return null;
-}
-
-async function fetchRaw(url, personalToken) {
-  try {
-    const res = await fetch(url, { headers: buildHeaders(personalToken, 'application/vnd.github.raw') });
+    const res = await fetch(`https://raw.githubusercontent.com/${fullName}/HEAD/${path.split('/').map(encodeURIComponent).join('/')}`);
     if (res.ok) return await res.text();
   } catch (err) {
-    console.warn(`GitHub request failed: ${url}`, err);
+    console.warn(`Raw file request failed: ${fullName}/${path}`, err);
   }
   return '';
 }
 
+function applyEnrichment(repo, { manifestDeps, weakDeps, commits, readmeText }) {
+  const deps = new Set([...(repo.strong_deps || []), ...weakDeps, ...manifestDeps]);
+  repo.detected_deps = Array.from(deps);
+  if (typeof commits === 'number') repo.commits_count = commits;
+  repo.readmeText = readmeText || '';
+  repo.enriched = true;
+}
+
+async function fetchJson(path, personalToken) {
+  try {
+    const res = await ghFetch(path, personalToken);
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn(`GitHub request failed: ${path}`, err);
+  }
+  return null;
+}
+
+
 /**
  * Count the owner's commits from the Link header of a one-per-page listing.
  */
-async function fetchCommitCount(api, owner, headers) {
+async function fetchCommitCount(api, owner, personalToken) {
   try {
-    const authorParam = owner ? `&author=${encodeURIComponent(owner)}` : '';
-    const res = await fetch(`${api}/commits?per_page=1${authorParam}`, { headers });
+    const authorParam = owner ? `&author=${owner}` : '';
+    const res = await ghFetch(`${api}/commits?per_page=1${authorParam}`, personalToken);
     if (!res.ok) return null; // 409 = empty repository
     const last = (res.headers.get('link') || '').match(/[?&]page=(\d+)>;\s*rel="last"/);
     if (last) return parseInt(last[1], 10);
@@ -324,13 +401,16 @@ function detectDepsFromManifest(file, text) {
 }
 
 /**
- * Quick heuristic tech stack detector from repository metadata & topics
+ * Quick heuristic tech stack detector from repository metadata & topics.
+ * Returns strong matches (language, name, topics) and weak ones (description
+ * prose), so a manifest can later overrule the weak guesses.
  */
 function extractFallbackDepsFromRepo(repo) {
-  const rawText = `${repo.name} ${repo.description || ''} ${(repo.topics || []).join(' ')}`.toLowerCase();
-  const stack = new Set();
+  const strongText = `${repo.name.toLowerCase().replace(/[_]/g, '-')} ${(repo.topics || []).join(' ')}`.toLowerCase();
+  const strong = new Set();
+  const weak = new Set();
 
-  if (repo.language) stack.add(repo.language);
+  if (repo.language) strong.add(repo.language);
 
   // Keyword -> Display Name mapping (ordered by specificity)
   const keywordsMap = [
@@ -393,19 +473,36 @@ function extractFallbackDepsFromRepo(repo) {
     ['redux', 'Redux'], ['zustand', 'Zustand'],
     // Desktop/Mobile
     ['electron', 'Electron'], ['tauri', 'Tauri'],
-    ['chrome-extension', 'Chrome Extension'],
+    ['chrome-extension', 'Chrome Extension'], ['chrome extension', 'Chrome Extension'],
   ];
 
-  const shortWords = new Set(['vue', 'aws', 'jwt', 'llm', 'k8s']);
-  
+  // Whole-word matching, so "trust" isn't Rust, "invite" isn't Vite and "reactive" isn't React
+  const matches = (text, keyword) =>
+    new RegExp(`(?<![a-z0-9])${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`).test(text);
+
+  // Topics and the repo name are deliberate tags: trust them
   for (const [keyword, displayName] of keywordsMap) {
-    if (shortWords.has(keyword)) {
-      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
-      if (regex.test(rawText)) stack.add(displayName);
-    } else {
-      if (rawText.includes(keyword)) stack.add(displayName);
+    if (matches(strongText, keyword)) strong.add(displayName);
+  }
+
+  // The description is prose and often mentions things the project doesn't use
+  // ("works on pages like ChatGPT, Gemini, and Grok"). AI services there only
+  // count when the sentence says the project uses them or reads as a stack list.
+  const sentences = (repo.description || '').toLowerCase().split(/(?<=[.!?;])\s+/);
+  for (const sentence of sentences) {
+    const found = keywordsMap.filter(([keyword]) => matches(sentence, keyword));
+    for (const [keyword, displayName] of found) {
+      if (strong.has(displayName)) continue;
+      const isAiService = AI_SERVICE_KEYWORDS.has(keyword);
+      // The cue must lead into this name ("built with Gemini"), not sit elsewhere in the sentence
+      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const usageCue = new RegExp(`\\b(using|uses|use|with|powered by|built (with|on)|via|integrat\\w*|leverag\\w*|backed by|on top of)\\s+(?:the\\s+)?(?:[\\w.-]+,?\\s+){0,2}${escaped}(?![a-z0-9])`).test(sentence);
+      const otherTech = found.filter(([k]) => k !== keyword && !AI_SERVICE_KEYWORDS.has(k)).length;
+      if (!isAiService || usageCue || otherTech >= 2) weak.add(displayName);
     }
   }
 
-  return Array.from(stack);
+  return { strong: Array.from(strong), weak: Array.from(weak).filter(d => !strong.has(d)) };
 }
+
+const AI_SERVICE_KEYWORDS = new Set(['openai', 'gemini', 'llm', 'langchain', 'pinecone', 'huggingface']);

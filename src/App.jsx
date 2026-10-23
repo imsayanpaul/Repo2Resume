@@ -1,13 +1,21 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import RepoSelector from './components/RepoSelector';
 import ResumePreview from './components/ResumePreview';
 import JdMatcherModal from './components/JdMatcherModal';
 import SettingsModal from './components/SettingsModal';
 import Footer from './components/Footer';
-import { fetchUserRepos, fetchRepoReadme, enrichRepoDetails } from './services/github';
+import { fetchUserRepos, enrichRepoDetails, setServerGithub } from './services/github';
 import { generateRepoBullets } from './services/resumeEngine';
 import { AlertTriangle, Search, Github, Code2, CheckCircle2, Zap, ShieldCheck, ExternalLink, Globe } from 'lucide-react';
+
+// Storage can throw in private windows or with site data blocked
+function readStorage(key) {
+  try { return localStorage.getItem(key) || ''; } catch { return ''; }
+}
+function writeStorage(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* keys just won't persist */ }
+}
 
 export default function App() {
   // Application State
@@ -29,9 +37,25 @@ export default function App() {
   const [jdText, setJdText] = useState('');
   const [jdKeywords, setJdKeywords] = useState([]);
 
-  // Local Storage & Environment API Keys
-  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('gitresume_gemini_key') || import.meta.env.VITE_GEMINI_API_KEY || '');
-  const [githubToken, setGithubToken] = useState(() => localStorage.getItem('gitresume_gh_token') || '');
+  // Visitor's own keys (browser only). Deployment keys live server-side behind /api.
+  const [geminiApiKey, setGeminiApiKey] = useState(() => readStorage('gitresume_gemini_key'));
+  const [githubToken, setGithubToken] = useState(() => readStorage('gitresume_gh_token'));
+  const [serverConfig, setServerConfig] = useState({ serverGemini: false, serverGithub: false });
+
+  // Ask the deployment which keys it holds; a static host without /api just leaves both false
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => (res.ok ? res.json() : null))
+      .then(cfg => {
+        if (!cfg) return;
+        const next = { serverGemini: Boolean(cfg.serverGemini), serverGithub: Boolean(cfg.serverGithub) };
+        setServerConfig(next);
+        setServerGithub(next.serverGithub);
+      })
+      .catch(() => {});
+  }, []);
+
+  const aiEnabled = Boolean(geminiApiKey) || serverConfig.serverGemini;
 
   // Generate Bullets for selected repos with Cache Support
   const handleGenerateBullets = useCallback(async (toneOverride = null, forceRegenerate = false, customInstruction = '') => {
@@ -53,25 +77,25 @@ export default function App() {
       let templateCount = 0;
 
       const generateOne = async (repo, index) => {
-        if (!repo.enriched) {
-          const [readmeText] = await Promise.all([
-            fetchRepoReadme(repo.full_name, githubToken),
-            enrichRepoDetails(repo, githubToken)
-          ]);
-          repo.readmeText = readmeText;
-        }
+        await enrichRepoDetails(repo, githubToken);
         // A rejected key fails identically for every repo, so stop retrying it
-        const keyRejected = [...aiErrors].some(e => e.includes('rejected the API key'));
-        const { bullets, source, aiError } = await generateRepoBullets(repo, toneToUse, keyRejected ? '' : geminiApiKey, jdKeywords, customInstruction);
+        const keyRejected = [...aiErrors].some(e => /rejected/.test(e));
+        const { bullets, source, model, unverified, aiError } = await generateRepoBullets(
+          repo, toneToUse, keyRejected ? '' : geminiApiKey, jdKeywords, customInstruction,
+          { serverGemini: serverConfig.serverGemini && !keyRejected }
+        );
         if (aiError) aiErrors.add(aiError);
-        if (source === 'heuristic' && geminiApiKey) templateCount++;
+        if (source === 'heuristic' && aiEnabled) templateCount++;
         results[index] = {
           repoId: repo.id,
           repoName: repo.name,
           description: repo.description,
           techStack: repo.detected_deps?.length > 0 ? repo.detected_deps : [repo.language],
           bullets,
-          html_url: repo.html_url
+          html_url: repo.html_url,
+          source,
+          model,
+          unverified
         };
       };
 
@@ -92,10 +116,16 @@ export default function App() {
         [toneToUse]: results
       }));
 
+      const notices = [];
       if (aiErrors.size > 0) {
         const scope = templateCount === results.length ? 'these bullets come' : `${templateCount} of ${results.length} projects come`;
-        setErrorMsg(`Gemini AI failed, so ${scope} from the offline template engine. ${[...aiErrors][0]}`);
+        notices.push(`Gemini AI failed, so ${scope} from the offline template engine. ${[...aiErrors][0]}`);
       }
+      const incomplete = selectedRepos.filter(r => r.enrichIncomplete).length;
+      if (incomplete > 0) {
+        notices.push(`GitHub's API limit was reached, so file listings and commit counts are missing for ${incomplete} project${incomplete > 1 ? 's' : ''}. Add a GitHub token in Settings for a higher limit.`);
+      }
+      if (notices.length > 0) setErrorMsg(notices.join(' '));
     } catch (err) {
       console.error('Error generating bullets:', err);
       const msg = err.message || '';
@@ -107,7 +137,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [repos, selectedRepoIds, activeTone, geminiApiKey, githubToken, jdKeywords, bulletsCache]);
+  }, [repos, selectedRepoIds, activeTone, geminiApiKey, githubToken, serverConfig, aiEnabled, jdKeywords, bulletsCache]);
 
   // Fetch Live GitHub User Repos
   const handleSearchUser = async (username) => {
@@ -182,12 +212,12 @@ export default function App() {
 
   const handleSaveGeminiKey = (key) => {
     setGeminiApiKey(key);
-    localStorage.setItem('gitresume_gemini_key', key);
+    writeStorage('gitresume_gemini_key', key);
   };
 
   const handleSaveGithubToken = (token) => {
     setGithubToken(token);
-    localStorage.setItem('gitresume_gh_token', token);
+    writeStorage('gitresume_gh_token', token);
   };
 
   const handleApplyJd = (text, keywords) => {
@@ -215,7 +245,7 @@ export default function App() {
         onGoHome={handleGoHome}
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeUsername={userData?.username}
-        hasApiKey={Boolean(geminiApiKey)}
+        hasApiKey={aiEnabled}
       />
 
       {/* Error Alert Banner */}
